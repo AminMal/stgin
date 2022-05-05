@@ -27,5 +27,5 @@ func (controller *Controller) SetRoutePrefix(prefix string) {
 }
 
 func (controller *Controller) hasPrefix() bool {
-	return controller.prefix == ""
+	return controller.prefix != ""
 }

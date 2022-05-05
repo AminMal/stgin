@@ -90,6 +90,8 @@ func (server *Server) Start() error {
 			var fullPath string
 			if controller.hasPrefix() {
 				fullPath = fmt.Sprintf("%v%v", controller.prefix, api.Path)
+			} else {
+				fullPath = api.Path
 			}
 			fmt.Println("adding", fullPath, "to handler")
 			engine.Handle(api.Method, fullPath, handlerFunc)
