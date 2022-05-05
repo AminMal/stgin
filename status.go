@@ -160,13 +160,6 @@ func (status InternalServerError) WithHeaders(headers http.Header) Status {
 	return status
 }
 
-type RequestContext struct {
-	Url		string
-	Params  map[string]string
-	Headers http.Header
-	Body    *RequestBody
-}
-
 type API = func (c RequestContext) Status
 
 type RequestBody struct {
