@@ -48,19 +48,26 @@ type msg struct {
 // and API with all the other things, now combine the smallest unit of stgin (API) with gin (HandlerFunc)
 func createHandlerFuncFromApi(api API) gin.HandlerFunc {
 	return func(context *gin.Context) {
-		queryParams := make(map[string]string, 10)
+		queryParams := make(map[string][]string, 10)
+		for key, value := range context.Request.URL.Query() {
+			queryParams[key] = value
+		}
+
+		pathParams := make(map[string]string, 10)
+
 		for _, param := range context.Params {
-			queryParams[param.Key] = param.Value
+			pathParams[param.Key] = param.Value
 		}
 
 		url := context.FullPath()
 		headers := context.Request.Header
 		body, err := bodyFromReadCloser(context.Request.Body)
 		rc := RequestContext{
-			Url:     url,
-			Params:  queryParams,
-			Headers: headers,
-			Body:    body,
+			Url:         url,
+			QueryParams: queryParams,
+			PathParams:  pathParams,
+			Headers:     headers,
+			Body:        body,
 		}
 		result := api(rc)
 		context.Status(result.Status())
@@ -93,12 +100,11 @@ func (server *Server) Start() error {
 			} else {
 				fullPath = api.Path
 			}
-			fmt.Println("adding", fullPath, "to handler")
 			engine.Handle(api.Method, fullPath, handlerFunc)
 		}
 	}
 
-	return engine.Run()
+	return engine.Run(fmt.Sprintf(":%d", server.port))
 }
 
 func NewServer(port int) *Server {
