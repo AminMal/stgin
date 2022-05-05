@@ -7,158 +7,101 @@ import (
 	"net/http"
 )
 
-type Status interface {
-	Status() int
-	Entity() any
-	Headers() http.Header
-	WithHeaders(headers http.Header) Status
+
+type Status struct {
+	StatusCode int
+	Entity     any
+	Headers    http.Header
 }
 
-// todo, add more statuses
-
-type Ok struct {
-	Body any
-	headers http.Header
+func (status Status) isRedirection() bool {
+	return status.StatusCode >= 300 && status.StatusCode < 400
 }
 
-func (status Ok) WithHeaders(headers http.Header) Status {
+
+func (status Status) WithHeaders(headers http.Header) Status {
 	for key, value := range headers {
-		status.headers[key] = value
+		status.Headers[key] = value
 	}
 	return status
 }
 
-func (status Ok) Status() int {
-	return OK
-}
+var emptyHeaders http.Header = make(map[string][]string, 6)
 
-func (status Ok) Entity()  any {
-	return status.Body
-}
-
-func (status Ok) Headers() http.Header {
-	return status.headers
-}
-
-type Created struct {
-	entity 	 any
-	headers  http.Header
-}
-
-func (status Created) Status() int {
-	return CREATED
-}
-
-func (status Created) Entity() any {
-	return status.entity
-}
-
-func (status Created) Headers() http.Header {
-	return status.headers
-}
-
-func (status Created) WithHeaders(headers http.Header) Status {
-	for key, value := range headers {
-		status.headers[key] = value
+func CreateResponse(statusCode int, body any) Status {
+	return Status{
+		StatusCode: statusCode,
+		Entity:     body,
+		Headers:    emptyHeaders,
 	}
-	return status
 }
 
-type BadRequest struct {
-	entity 	  any
-	headers   http.Header
+// 2xx Statuses here
+
+func Ok(body any) Status {
+	return CreateResponse(http.StatusOK, body)
 }
 
-func (status BadRequest) Status() int {
-	return BAD_REQUEST
+func Created(body any) Status {
+	return CreateResponse(http.StatusCreated, body)
 }
 
-func (status BadRequest) Entity() any {
-	return status.entity
-}
+// ------------------
+// 3xx statuses here
 
-func (status BadRequest) Headers() http.Header {
-	return status.headers
-}
-
-func (status BadRequest) WithHeaders(headers http.Header) Status {
-	for key, value := range headers {
-		status.headers[key] = value
+func MovedPermanently(location string) Status {
+	return Status{
+		StatusCode: http.StatusMovedPermanently,
+		Entity:     location,
+		Headers:    emptyHeaders,
 	}
-	return status
 }
 
-type Unauthorized struct {
-	entity     any
-	headers    http.Header
-}
-
-func (status Unauthorized) Status() int {
-	return UNAUTHORIZED
-}
-
-func (status Unauthorized) Entity() any {
-	return status.entity
-}
-
-func (status Unauthorized) Headers() http.Header {
-	return status.headers
-}
-
-func (status Unauthorized) WithHeaders(headers http.Header) Status {
-	for key, value := range headers {
-		status.headers[key] = value
+func Found(location string) Status {
+	return Status{
+		StatusCode: http.StatusFound,
+		Entity:     location,
+		Headers:    emptyHeaders,
 	}
-	return status
 }
 
-type Forbidden struct {
-	entity 		any
-	headers 	http.Header
-}
-
-func (status Forbidden) Status() int {
-	return FORBIDDEN
-}
-
-func (status Forbidden) Entity() any {
-	return status.entity
-}
-
-func (status Forbidden) Headers() http.Header {
-	return status.headers
-}
-
-func (status Forbidden) WithHeaders(headers http.Header) Status {
-	for key, value := range headers {
-		status.headers[key] = value
+func PermanentRedirect(location string) Status {
+	return Status{
+		StatusCode: http.StatusPermanentRedirect,
+		Entity:     location,
+		Headers:    emptyHeaders,
 	}
-	return status
 }
 
-type InternalServerError struct {
-	Body    any
-	headers http.Header
+// ------------------
+// 4xx statuses here
+
+func BadRequest(body any) Status {
+	return CreateResponse(http.StatusBadRequest, body)
 }
 
-func (status InternalServerError) Entity() any {
-	return status.Body
+func Unauthorized(body any) Status {
+	return CreateResponse(http.StatusUnauthorized, body)
 }
 
-func (status InternalServerError) Status() int {
-	return INTERNAL_SERVER_ERROR
+func Forbidden(body any) Status {
+	return CreateResponse(http.StatusForbidden, body)
 }
 
-func (status InternalServerError) Headers() http.Header {
-	return status.headers
+func NotFound(body any) Status {
+	return CreateResponse(http.StatusNotFound, body)
 }
 
-func (status InternalServerError) WithHeaders(headers http.Header) Status {
-	for key, value := range headers {
-		status.headers[key] = value
-	}
-	return status
+// ------------------
+// 5xx statuses here
+
+func InternalServerError(body any) Status {
+	return CreateResponse(http.StatusInternalServerError, body)
 }
+
+// ------------------
+
+
 
 type API = func (c RequestContext) Status
 
@@ -188,7 +131,7 @@ func bodyFromReadCloser(reader io.ReadCloser) (*RequestBody, error) {
 	defer func(r io.ReadCloser) {
 		err := r.Close()
 		if err != nil {
-			_ = stginLogger.Err("Could not close reader stream from request")
+			_ = stginLogger.Err("could not close reader stream from request")
 			return
 		}
 	}(reader)
@@ -200,7 +143,7 @@ func bodyFromReadCloser(reader io.ReadCloser) (*RequestBody, error) {
 	}
 }
 
-func (rb *RequestBody) ReadInto(a any) error {
+func (rb *RequestBody) WriteInto(a any) error {
 	var bts []byte
 	if !rb.hasFilledBytes {
 		bytes, err := ioutil.ReadAll(rb.underlying)
