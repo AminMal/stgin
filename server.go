@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"net/http"
 )
 
 // This file is the part that underlying library changes are applied
@@ -70,17 +71,22 @@ func createHandlerFuncFromApi(api API) gin.HandlerFunc {
 			Body:        body,
 		}
 		result := api(rc)
-		context.Status(result.Status())
-		responseBody, err := json.Marshal(result.Entity())
+		if result.isRedirection() {
+			http.Redirect(context.Writer, context.Request, fmt.Sprint(result.Entity), result.StatusCode)
+			return
+		}
+		statusCode := result.StatusCode
+		context.Status(result.StatusCode)
+		responseBody, err := json.Marshal(result.Entity)
 		if err != nil {
-			context.Status(INTERNAL_SERVER_ERROR)
+			statusCode = http.StatusInternalServerError
 			// log error here
 			isr := msg{Message: "internal server error"}
-			isrBytes, _ := json.Marshal(InternalServerError{Body: &isr})
+			isrBytes, _ := json.Marshal(InternalServerError(&isr))
 			responseBody = isrBytes
-		} else {
-			context.Status(result.Status())
 		}
+		context.Status(statusCode)
+		context.Writer.Header().Add(contentTypeKey, applicationJsonType)
 		_, err = context.Writer.Write(responseBody)
 		if err != nil {
 			// log failure here
