@@ -2,8 +2,8 @@ package stgin
 
 import (
 	"encoding/json"
-	"github.com/gin-gonic/gin"
 	"fmt"
+	"github.com/gin-gonic/gin"
 )
 
 // This file is the part that underlying library changes are applied
@@ -91,6 +91,7 @@ func (server *Server) Start() error {
 			if controller.hasPrefix() {
 				fullPath = fmt.Sprintf("%v%v", controller.prefix, api.Path)
 			}
+			fmt.Println("adding", fullPath, "to handler")
 			engine.Handle(api.Method, fullPath, handlerFunc)
 		}
 	}
