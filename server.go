@@ -55,7 +55,7 @@ func createHandlerFuncFromApi(
 	api API,
 	requestListeners []RequestListener,
 	responseListeners []ResponseListener,
-	journeyListeners []ApiJourneyListener
+	journeyListeners []ApiJourneyListener,
 	) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		queryParams := make(map[string][]string, 10)
