@@ -48,6 +48,14 @@ func PATCH(path string, api API) Route {
 	}
 }
 
+func OPTIONS(path string, api API) Route {
+	return Route{
+		Path: path,
+		Method: "OPTIONS",
+		Action: api,
+	}
+}
+
 type RouteCreationStage struct {
 	method 		string
 	path 		string
@@ -101,6 +109,13 @@ func OnDelete(path string) RouteCreationStage {
 func OnPatch(path string) RouteCreationStage {
 	return RouteCreationStage{
 		method: "PATCH",
+		path: path,
+	}
+}
+
+func OnOptions(path string) RouteCreationStage {
+	return RouteCreationStage{
+		method: "OPTIONS",
 		path: path,
 	}
 }
