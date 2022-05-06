@@ -11,32 +11,27 @@ import (
 
 // This file is the part that underlying library changes are applied
 
-type ServerRequestListener    = func(RequestContext) RequestContext
-type ServerResponseListener   = func(Status) Status
-type ServerApiJourneyListener = func(RequestContext, Status)
-
 type Server struct {
 	port 				int
 	Controllers			[]*Controller
-	requestListeners 	[]ServerRequestListener
-	responseListeners 	[]ServerResponseListener
-	apiListeners        []ServerApiJourneyListener
-	journeyListeners    []ServerApiJourneyListener
+	requestListeners 	[]RequestListener
+	responseListeners 	[]ResponseListener
+	journeyListeners    []ApiJourneyListener
 }
 
 func (server *Server) Register(controllers ...*Controller) {
 	server.Controllers = append(server.Controllers, controllers...)
 }
 
-func (server *Server) AddRequestListeners(listeners ...ServerRequestListener) {
+func (server *Server) AddRequestListeners(listeners ...RequestListener) {
 	server.requestListeners = append(server.requestListeners, listeners...)
 }
 
-func (server *Server) AddResponseListeners(listeners ...ServerResponseListener) {
+func (server *Server) AddResponseListeners(listeners ...ResponseListener) {
 	server.responseListeners = append(server.responseListeners, listeners...)
 }
 
-func (server *Server) AddJourneyListeners(listeners ...ServerApiJourneyListener) {
+func (server *Server) AddJourneyListeners(listeners ...ApiJourneyListener) {
 	server.journeyListeners = append(server.journeyListeners, listeners...)
 }
 
@@ -47,12 +42,10 @@ type msg struct {
 // this is where the integration happens, having all the information from request context of underlying framework
 // and API with all the other things, now combine the smallest unit of stgin (API) with gin (HandlerFunc)
 func createHandlerFuncFromApi(
-	api API, controllerRequestListeners []ControllerRequestListener,
-	controllerResponseListeners []ControllerResponseListener,
-	controllerApiJourneyListeners []ControllerApiJourneyListener,
-	serverRequestListeners []ServerRequestListener,
-	serverResponseListeners []ServerResponseListener,
-	serverApiJourneyListeners []ServerApiJourneyListener,
+	api API,
+	requestListeners []RequestListener,
+	responseListeners []ResponseListener,
+	journeyListeners []ApiJourneyListener,
 	method string,
 	) gin.HandlerFunc {
 	return func(context *gin.Context) {
@@ -79,26 +72,16 @@ func createHandlerFuncFromApi(
 			receivedAt:  time.Now(),
 			Method:      method,
 		}
-		for _, requestListener := range controllerRequestListeners {
-			rc = requestListener(rc)
-		}
-		for _, requestListener := range serverRequestListeners {
+		for _, requestListener := range requestListeners {
 			rc = requestListener(rc)
 		}
 
 		result := api(rc)
-		for _, responseListener := range controllerResponseListeners {
-			result = responseListener(result)
-		}
-		for _, responseListener := range serverResponseListeners {
+		for _, responseListener := range responseListeners {
 			result = responseListener(result)
 		}
 
-		for _, journeyListener := range serverApiJourneyListeners {
-			journeyListener(rc, result)
-		}
-
-		for _, journeyListener := range controllerApiJourneyListeners {
+		for _, journeyListener := range journeyListeners {
 			journeyListener(rc, result)
 		}
 
@@ -146,14 +129,7 @@ func getColor(status int) colored.Color {
 	}
 }
 
-func RequestLogger() ServerRequestListener {
-	return func(request RequestContext) RequestContext {
-		stginLogger.InfoF("%v        -> %v", request.Method, request.Url)
-		return request
-	}
-}
-
-func ServerJourneyLogger() ServerApiJourneyListener {
+func WatchAPIs() ApiJourneyListener {
 	return func(request RequestContext, status Status) {
 		now := time.Now()
 		difference := fmt.Sprint(now.Sub(request.receivedAt))
@@ -161,6 +137,7 @@ func ServerJourneyLogger() ServerApiJourneyListener {
 		stginLogger.InfoF("%v -> %v | %v | %v", request.Method, request.Url, statusString, difference)
 	}
 }
+// todo, implement recovery func
 
 func (server *Server) Start() error {
 	engine := gin.New()
@@ -168,14 +145,14 @@ func (server *Server) Start() error {
 	controllers := server.Controllers
 	for _, controller := range controllers {
 		for _, route := range controller.routes {
+			requestListeners := append(server.requestListeners, controller.requestListeners...)
+			responseListeners := append(server.responseListeners, controller.responseListeners...)
+			journeyListeners := append(server.journeyListeners, controller.journeyListeners...)
 			handlerFunc := createHandlerFuncFromApi(
 				route.Action,
-				controller.requestListeners,
-				controller.responseListeners,
-				controller.journeyListeners,
-				server.requestListeners,
-				server.responseListeners,
-				server.journeyListeners,
+				requestListeners,
+				responseListeners,
+				journeyListeners,
 				route.Method,
 				)
 			var fullPath string

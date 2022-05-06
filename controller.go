@@ -5,17 +5,13 @@ import (
 	"strings"
 )
 
-type ControllerRequestListener    = func(r RequestContext) RequestContext
-type ControllerResponseListener   = func(response Status) Status
-type ControllerApiJourneyListener = func(RequestContext, Status)
-
 type Controller struct {
 	Name             	string
 	routes           	[]Route
 	prefix           	string
-	requestListeners 	[]ControllerRequestListener
-	responseListeners 	[]ControllerResponseListener
-	journeyListeners    []ControllerApiJourneyListener
+	requestListeners 	[]RequestListener
+	responseListeners 	[]ResponseListener
+	journeyListeners    []ApiJourneyListener
 }
 
 func NewController(name string) *Controller {
@@ -36,15 +32,15 @@ func (controller *Controller) AddRoutes(routes ...Route) {
 	controller.routes = append(controller.routes, routes...)
 }
 
-func (controller *Controller) AddRequestListeners(listeners ...ControllerRequestListener) {
+func (controller *Controller) AddRequestListeners(listeners ...RequestListener) {
 	controller.requestListeners = append(controller.requestListeners, listeners...)
 }
 
-func (controller *Controller) AddResponseListener(listeners ...ControllerResponseListener) {
+func (controller *Controller) AddResponseListener(listeners ...ResponseListener) {
 	controller.responseListeners = append(controller.responseListeners, listeners...)
 }
 
-func (controller *Controller) AddJourneyListeners(listeners ...ControllerApiJourneyListener) {
+func (controller *Controller) AddJourneyListeners(listeners ...ApiJourneyListener) {
 	controller.journeyListeners = append(controller.journeyListeners, listeners...)
 }
 
