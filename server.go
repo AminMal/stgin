@@ -84,9 +84,17 @@ func createHandlerFuncFromApi(api API) gin.HandlerFunc {
 			isr := msg{Message: "internal server error"}
 			isrBytes, _ := json.Marshal(InternalServerError(&isr))
 			responseBody = isrBytes
+		} else {
+			for key, values := range result.Headers {
+				for _, value := range values {
+					context.Writer.Header().Add(key, value)
+				}
+			}
 		}
 		context.Status(statusCode)
-		context.Writer.Header().Add(contentTypeKey, applicationJsonType)
+		if context.Writer.Header().Get(contentTypeKey) == "" {
+			context.Writer.Header().Add(contentTypeKey, applicationJsonType)
+		}
 		_, err = context.Writer.Write(responseBody)
 		if err != nil {
 			// log failure here
