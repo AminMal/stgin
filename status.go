@@ -92,6 +92,10 @@ func NotFound(body any) Status {
 	return CreateResponse(http.StatusNotFound, body)
 }
 
+func MethodNotAllowed(body any) Status {
+	return CreateResponse(http.StatusMethodNotAllowed, body)
+}
+
 // ------------------
 // 5xx statuses here
 

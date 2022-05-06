@@ -12,11 +12,13 @@ import (
 // This file is the part that underlying library changes are applied
 
 type Server struct {
-	port 				int
-	Controllers			[]*Controller
-	requestListeners 	[]RequestListener
-	responseListeners 	[]ResponseListener
-	journeyListeners    []ApiJourneyListener
+	port 					int
+	Controllers				[]*Controller
+	requestListeners 		[]RequestListener
+	responseListeners 		[]ResponseListener
+	journeyListeners    	[]ApiJourneyListener
+	notFoundAction      	API
+	methodNotAllowedAction 	API
 }
 
 func (server *Server) Register(controllers ...*Controller) {
@@ -35,6 +37,14 @@ func (server *Server) AddJourneyListeners(listeners ...ApiJourneyListener) {
 	server.journeyListeners = append(server.journeyListeners, listeners...)
 }
 
+func (server *Server) NotFoundAction(action API) {
+	server.notFoundAction = action
+}
+
+func (server *Server) MethodNowAllowedAction(action API) {
+	server.methodNotAllowedAction = action
+}
+
 type msg struct {
 	Message string `json:"message"`
 }
@@ -45,8 +55,7 @@ func createHandlerFuncFromApi(
 	api API,
 	requestListeners []RequestListener,
 	responseListeners []ResponseListener,
-	journeyListeners []ApiJourneyListener,
-	method string,
+	journeyListeners []ApiJourneyListener
 	) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		queryParams := make(map[string][]string, 10)
@@ -70,7 +79,7 @@ func createHandlerFuncFromApi(
 			Headers:     headers,
 			Body:        body,
 			receivedAt:  time.Now(),
-			Method:      method,
+			Method:      context.Request.Method,
 		}
 		for _, requestListener := range requestListeners {
 			rc = requestListener(rc)
@@ -139,6 +148,31 @@ func WatchAPIs() ApiJourneyListener {
 }
 // todo, implement recovery func
 
+type generalFailureMessage struct {
+	StatusCode 		int 	`json:"status_code"`
+	Path 			string 	`json:"path"`
+	Message 		string  `json:"message"`
+	Method 			string 	`json:"method"`
+}
+
+var notFoundDefaultAction API = func(request RequestContext) Status {
+	return NotFound(&generalFailureMessage{
+		StatusCode: 404,
+		Path:       request.Url,
+		Message:    "route not found",
+		Method:		request.Method,
+	})
+}
+
+var methodNotAllowedDefaultAction API = func(request RequestContext) Status {
+	return MethodNotAllowed(&generalFailureMessage{
+		StatusCode: http.StatusMethodNotAllowed,
+		Path:       request.Url,
+		Message:    "method " + request.Method + " not allowed!",
+		Method:     request.Method,
+	})
+}
+
 func (server *Server) Start() error {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
@@ -153,7 +187,6 @@ func (server *Server) Start() error {
 				requestListeners,
 				responseListeners,
 				journeyListeners,
-				route.Method,
 				)
 			var fullPath string
 			if controller.hasPrefix() {
@@ -164,11 +197,26 @@ func (server *Server) Start() error {
 			engine.Handle(route.Method, fullPath, handlerFunc)
 		}
 	}
-
+	engine.NoRoute(createHandlerFuncFromApi(
+		server.notFoundAction,
+		server.requestListeners,
+		server.responseListeners,
+		server.journeyListeners,
+		))
+	engine.NoMethod(createHandlerFuncFromApi(
+		server.methodNotAllowedAction,
+		server.requestListeners,
+		server.responseListeners,
+		server.journeyListeners,
+		))
 	return engine.Run(fmt.Sprintf(":%d", server.port))
 }
 
 func NewServer(port int) *Server {
-	return &Server{port: port}
+	return &Server{
+		port: port,
+		notFoundAction: notFoundDefaultAction,
+		methodNotAllowedAction: methodNotAllowedDefaultAction,
+	}
 }
 
