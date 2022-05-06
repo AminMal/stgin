@@ -36,6 +36,6 @@ func (c RequestContext) GetQueries(name string) []string {
 func (c RequestContext) GetQuery(name string) (string, bool) {
 	allValues := c.GetQueries(name)
 	if len(allValues) == 1 {
-		return allValues[1], true
+		return allValues[0], true
 	} else { return "", false }
 }
