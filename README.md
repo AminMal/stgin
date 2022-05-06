@@ -19,21 +19,21 @@ type HealthCheckRequest struct {
 ***STgin implementation:***
 ```go
 health := healthController.POST("/health", func(request stgin.RequestContext) stgin.Status {
-	var reqBody Whatever
-	request.Body.WriteInto(&reqBody)
-	// do something with reqBody
-	var response HealthCheckResponse = GetHealth()
-	if response.DBConnection {
-		return stgin.Ok(&response) 
-	} else {
-		return stgin.InternalServerError(&response)
+    var reqBody HealthCheckRequest
+    request.Body.WriteInto(&reqBody)
+    // do something with reqBody
+    var response HealthCheckResponse = GetHealth()
+    if response.DBConnection {
+        return stgin.Ok(&response) 
+    } else {
+        return stgin.InternalServerError(&response)
     }
 })
 ```
 ***go-gin implementation:***
 ```go
 r.POST("/health", func(c *gin.Context) {
-    var reqBody Whatever
+    var reqBody HealthCheckRequest
     bodyBytes, err := ioutil.ReadAll(c.Request.Body)
 	// potential error handling
     err = json.Unmarshal(bodyBytes, &reqBody)
@@ -54,10 +54,10 @@ r.POST("/health", func(c *gin.Context) {
 ```
 Or just easily add headers with a receiver function instead of manually writing headers:
 ```go
-stgin.Ok(&body).WithHeaders(httpHeadersDefinedeariler)
+stgin.Ok(&body).WithHeaders(...)
 ```
 
-##Structure
+## Structure
 
 The structure of STgin types and interfaces is pretty simple, a `Server` may have several `Controller`s, and each controller may have serveral `Route`s.
 ```
@@ -81,7 +81,7 @@ The structure of STgin types and interfaces is pretty simple, a `Server` may hav
 
 **API:** Is a type alias for a function which accepts a request context and returns a status.
 
-##Custom Actions
+## Custom Actions
 STgin does not provide actions about stuff like Authentication, because simple authentication is not useful most of the time, and you may need customized authentications.
 
 For instance:
@@ -121,4 +121,3 @@ myAPI := stgin.GET("/test", func(request stgin.RequestContext) stgin.Status {
 #TODOs
 * Add most common statuses as predefined functions
 * Add support for cookies
-* Add support for custom introspections both in controller layer and server layer (same as custom actions for api)
