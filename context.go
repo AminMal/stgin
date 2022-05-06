@@ -1,6 +1,9 @@
 package stgin
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+)
 
 type RequestContext struct {
 	Url         string
@@ -8,6 +11,8 @@ type RequestContext struct {
 	PathParams  map[string]string
 	Headers     http.Header
 	Body        *RequestBody
+	receivedAt  time.Time
+	Method      string
 }
 
 func (c RequestContext) GetPathParam(name string) (string, bool) {
