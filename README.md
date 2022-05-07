@@ -1,6 +1,6 @@
 #STGIN
 
-STgin is a functional rest framework that provides easy APIs in order to maintain your application RESTful APIS.
+STgin is a functional rest framework that provides easy APIs in order to maintain your application RESTful API server.
 
 It is currently built upon go-gin framework, but has the ability to easily switch between any other library/framework using the translator function in server file.
 
@@ -18,9 +18,9 @@ type HealthCheckRequest struct {
 ```
 ***STgin implementation:***
 ```go
-health := healthController.POST("/health", func(request stgin.RequestContext) stgin.Status {
+health := stgin.POST("/health", func(request stgin.RequestContext) stgin.Status {
     var reqBody HealthCheckRequest
-    request.Body.WriteInto(&reqBody)
+    request.Body.JSONInto(&reqBody)
     // do something with reqBody
     var response HealthCheckResponse = GetHealth()
     if response.DBConnection {
@@ -118,6 +118,29 @@ myAPI := stgin.GET("/test", func(request stgin.RequestContext) stgin.Status {
 
 ```
 
-#TODOs
+# Listeners
+Listeners are functions, which can affect the request and response based on the defined behavior.
+For instance, a `ResponseListener` is a function which receives a response, and returns a response, it can be used when you want to apply something to all the responses in server layer or controller layer (i.e., providing CORS headers).
+There are 3 types of listeners:
+* RequestListener: func(RequestContext) RequestContext [Can be used to mutate request before the controller receives it]
+* ResponseListener: func(Status) Status [Can be used to add/remove additional information to a raw controller response]
+* APIListener: func(RequestContext, Status) [Can be used to do stuff like logging, ...]
+
+There are some listeners provided inside the STgin package which can be used inside a server or a controller [API watcher/logger, recovery].
+
+# Custom Recovery
+An `ErrorHandler` can be provided by the developer, to provide custom error handling behavior.
+Definition of an `ErrorHandler` function is pretty straight forward, you just define a function which takes the request and the error, and decides what to return as the status.
+```go
+var myErrorHandler stgin.ErrorHandler = func(request RequestContext, err any) stgin.Status {
+    if myCustomErr, isCustomErr := err.(CustomErr); isCustomErr {
+        return stgin.BadRequest(...)
+    } else {
+        return stgin.InternalServerError(...)
+    }
+}
+```
+
+# TODOs
 * Add most common statuses as predefined functions
 * Add support for cookies
