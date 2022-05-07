@@ -47,7 +47,7 @@ func (server *Server) MethodNowAllowedAction(action API) {
 	server.methodNotAllowedAction = action
 }
 
-func (server *Server) ServerErrorAction(action ErrorHandler) {
+func (server *Server) SetErrorHandler(action ErrorHandler) {
 	server.errorAction = action
 }
 
@@ -63,7 +63,7 @@ func createHandlerFuncFromApi(
 	responseListeners []ResponseListener,
 	apiListeners []APIListener,
 	recovery ErrorHandler,
-	) gin.HandlerFunc {
+) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		queryParams := make(map[string][]string, 10)
 		for key, value := range context.Request.URL.Query() {
@@ -80,18 +80,20 @@ func createHandlerFuncFromApi(
 		headers := context.Request.Header
 		body, err := bodyFromReadCloser(context.Request.Body)
 		rc := RequestContext{
-			Url:         url,
-			QueryParams: queryParams,
-			PathParams:  pathParams,
-			Headers:     headers,
-			Body:        body,
-			receivedAt:  time.Now(),
-			Method:      context.Request.Method,
+			Url:           url,
+			QueryParams:   queryParams,
+			PathParams:    pathParams,
+			Headers:       headers,
+			Body:          body,
+			receivedAt:    time.Now(),
+			Method:        context.Request.Method,
 			ContentLength: context.Request.ContentLength,
-			Host:		   context.Request.Host,
+			Host:          context.Request.Host,
 			MultipartForm: func() *multipart.Form {
 				return context.Request.MultipartForm
 			},
+			Scheme:     context.Request.URL.Scheme,
+			RemoteAddr: context.Request.RemoteAddr,
 		}
 		for _, requestListener := range requestListeners {
 			rc = requestListener(rc)
@@ -159,21 +161,18 @@ func getColor(status int) colored.Color {
 	}
 }
 
-func WatchAPIs() APIListener {
-	return func(request RequestContext, status Status) {
-		now := time.Now()
-		difference := fmt.Sprint(now.Sub(request.receivedAt))
-		statusString := fmt.Sprintf("%v%d%v", getColor(status.StatusCode), status.StatusCode, colored.ResetPrevColor)
-		stginLogger.InfoF("%v -> %v | %v | %v", request.Method, request.Url, statusString, difference)
-	}
+var WatchAPIs APIListener = func(request RequestContext, status Status) {
+	now := time.Now()
+	difference := fmt.Sprint(now.Sub(request.receivedAt))
+	statusString := fmt.Sprintf("%v%d%v", getColor(status.StatusCode), status.StatusCode, colored.ResetPrevColor)
+	stginLogger.InfoF("%v -> %v | %v | %v", request.Method, request.Url, statusString, difference)
 }
-// todo, implement recovery func
 
 type generalFailureMessage struct {
-	StatusCode 		int 	`json:"status_code"`
-	Path 			string 	`json:"path"`
-	Message 		string  `json:"message"`
-	Method 			string 	`json:"method"`
+	StatusCode int    `json:"status_code"`
+	Path       string `json:"path"`
+	Message    string `json:"message"`
+	Method     string `json:"method"`
 }
 
 var notFoundDefaultAction API = func(request RequestContext) Status {
@@ -181,7 +180,7 @@ var notFoundDefaultAction API = func(request RequestContext) Status {
 		StatusCode: 404,
 		Path:       request.Url,
 		Message:    "route not found",
-		Method:		request.Method,
+		Method:     request.Method,
 	})
 }
 
@@ -195,7 +194,16 @@ var methodNotAllowedDefaultAction API = func(request RequestContext) Status {
 }
 
 var errorAction ErrorHandler = func(request RequestContext, err any) Status {
-	stginLogger.ErrorF("Recovered following error: %v", fmt.Sprint(err))
+	if parseErr, isParseError := err.(ParseError); isParseError {
+		return BadRequest(&generalFailureMessage{
+			StatusCode: 400,
+			Path:       request.Url,
+			Message:    parseErr.Error(),
+			Method:     request.Method,
+		})
+	} // enough for now, user should be able to easily detect and provide actions for both client and server error
+	errorRepr := fmt.Sprintf("%v%v%v", colored.RED, fmt.Sprint(err), colored.ResetPrevColor)
+	stginLogger.ErrorF("Recovered following error:\n\t%v\n", errorRepr)
 	return InternalServerError(&generalFailureMessage{
 		StatusCode: 500,
 		Path:       request.Url,
@@ -218,7 +226,7 @@ func (server *Server) Start() error {
 				responseListeners,
 				journeyListeners,
 				server.errorAction,
-				)
+			)
 			var fullPath string
 			if controller.hasPrefix() {
 				fullPath = fmt.Sprintf("%v%v", controller.prefix, route.Path)
@@ -234,23 +242,23 @@ func (server *Server) Start() error {
 		server.responseListeners,
 		server.apiListeners,
 		server.errorAction,
-		))
+	))
 	engine.NoMethod(createHandlerFuncFromApi(
 		server.methodNotAllowedAction,
 		server.requestListeners,
 		server.responseListeners,
 		server.apiListeners,
 		server.errorAction,
-		))
+	))
+	engine.HandleMethodNotAllowed = true
 	return engine.Run(fmt.Sprintf(":%d", server.port))
 }
 
 func NewServer(port int) *Server {
 	return &Server{
-		port: port,
-		notFoundAction: notFoundDefaultAction,
+		port:                   port,
+		notFoundAction:         notFoundDefaultAction,
 		methodNotAllowedAction: methodNotAllowedDefaultAction,
-		errorAction: errorAction,
+		errorAction:            errorAction,
 	}
 }
-
