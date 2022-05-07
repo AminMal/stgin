@@ -1,18 +1,22 @@
 package stgin
 
 import (
+	"mime/multipart"
 	"net/http"
 	"time"
 )
 
 type RequestContext struct {
-	Url         string
-	QueryParams map[string][]string
-	PathParams  map[string]string
-	Headers     http.Header
-	Body        *RequestBody
-	receivedAt  time.Time
-	Method      string
+	Url         		string
+	QueryParams 		map[string][]string
+	PathParams  		map[string]string
+	Headers     		http.Header
+	Body        		*RequestBody
+	receivedAt  		time.Time
+	Method      		string
+	ContentLength 		int64
+	Host 				string
+	MultipartForm 		func() *multipart.Form
 }
 
 func (c RequestContext) GetPathParam(name string) (string, bool) {

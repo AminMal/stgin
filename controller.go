@@ -6,12 +6,12 @@ import (
 )
 
 type Controller struct {
-	Name             	string
-	routes           	[]Route
-	prefix           	string
-	requestListeners 	[]RequestListener
-	responseListeners 	[]ResponseListener
-	journeyListeners    []ApiJourneyListener
+	Name              string
+	routes            []Route
+	prefix            string
+	requestListeners  []RequestListener
+	responseListeners []ResponseListener
+	apiListeners      []APIListener
 }
 
 func NewController(name string) *Controller {
@@ -40,8 +40,8 @@ func (controller *Controller) AddResponseListener(listeners ...ResponseListener)
 	controller.responseListeners = append(controller.responseListeners, listeners...)
 }
 
-func (controller *Controller) AddJourneyListeners(listeners ...ApiJourneyListener) {
-	controller.journeyListeners = append(controller.journeyListeners, listeners...)
+func (controller *Controller) AddAPIListeners(listeners ...APIListener) {
+	controller.apiListeners = append(controller.apiListeners, listeners...)
 }
 
 func (controller *Controller) hasPrefix() bool {

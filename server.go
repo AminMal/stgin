@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/AminMal/slogger/colored"
 	"github.com/gin-gonic/gin"
+	"mime/multipart"
 	"net/http"
 	"time"
 )
@@ -12,13 +13,14 @@ import (
 // This file is the part that underlying library changes are applied
 
 type Server struct {
-	port 					int
-	Controllers				[]*Controller
-	requestListeners 		[]RequestListener
-	responseListeners 		[]ResponseListener
-	journeyListeners    	[]ApiJourneyListener
-	notFoundAction      	API
-	methodNotAllowedAction 	API
+	port                   int
+	Controllers            []*Controller
+	requestListeners       []RequestListener
+	responseListeners      []ResponseListener
+	apiListeners           []APIListener
+	notFoundAction         API
+	methodNotAllowedAction API
+	errorAction            API
 }
 
 func (server *Server) Register(controllers ...*Controller) {
@@ -33,8 +35,8 @@ func (server *Server) AddResponseListeners(listeners ...ResponseListener) {
 	server.responseListeners = append(server.responseListeners, listeners...)
 }
 
-func (server *Server) AddJourneyListeners(listeners ...ApiJourneyListener) {
-	server.journeyListeners = append(server.journeyListeners, listeners...)
+func (server *Server) AddAPIListeners(listeners ...APIListener) {
+	server.apiListeners = append(server.apiListeners, listeners...)
 }
 
 func (server *Server) NotFoundAction(action API) {
@@ -43,6 +45,10 @@ func (server *Server) NotFoundAction(action API) {
 
 func (server *Server) MethodNowAllowedAction(action API) {
 	server.methodNotAllowedAction = action
+}
+
+func (server *Server) ServerErrorAction(action API) {
+	server.errorAction = action
 }
 
 type msg struct {
@@ -55,7 +61,8 @@ func createHandlerFuncFromApi(
 	api API,
 	requestListeners []RequestListener,
 	responseListeners []ResponseListener,
-	journeyListeners []ApiJourneyListener,
+	apiListeners []APIListener,
+	recovery API,
 	) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		queryParams := make(map[string][]string, 10)
@@ -80,18 +87,31 @@ func createHandlerFuncFromApi(
 			Body:        body,
 			receivedAt:  time.Now(),
 			Method:      context.Request.Method,
+			ContentLength: context.Request.ContentLength,
+			Host:		   context.Request.Host,
+			MultipartForm: func() *multipart.Form {
+				return context.Request.MultipartForm
+			},
 		}
 		for _, requestListener := range requestListeners {
 			rc = requestListener(rc)
 		}
+		defer func() {
+			if err := recover(); err != nil {
+				isr := recovery(rc)
+				body, _ := json.Marshal(isr.Entity)
+				context.Status(isr.StatusCode)
+				context.Writer.Write(body)
+			}
+		}()
 
 		result := api(rc)
 		for _, responseListener := range responseListeners {
 			result = responseListener(result)
 		}
 
-		for _, journeyListener := range journeyListeners {
-			journeyListener(rc, result)
+		for _, apiListener := range apiListeners {
+			apiListener(rc, result)
 		}
 
 		if result.isRedirection() {
@@ -138,7 +158,7 @@ func getColor(status int) colored.Color {
 	}
 }
 
-func WatchAPIs() ApiJourneyListener {
+func WatchAPIs() APIListener {
 	return func(request RequestContext, status Status) {
 		now := time.Now()
 		difference := fmt.Sprint(now.Sub(request.receivedAt))
@@ -173,20 +193,29 @@ var methodNotAllowedDefaultAction API = func(request RequestContext) Status {
 	})
 }
 
+var errorAction API = func(request RequestContext) Status {
+	return InternalServerError(&generalFailureMessage{
+		StatusCode: 500,
+		Path:       request.Url,
+		Message:    "internal server error",
+		Method:     request.Method,
+	})
+}
+
 func (server *Server) Start() error {
 	engine := gin.New()
-	engine.Use(gin.Recovery())
 	controllers := server.Controllers
 	for _, controller := range controllers {
 		for _, route := range controller.routes {
 			requestListeners := append(server.requestListeners, controller.requestListeners...)
 			responseListeners := append(server.responseListeners, controller.responseListeners...)
-			journeyListeners := append(server.journeyListeners, controller.journeyListeners...)
+			journeyListeners := append(server.apiListeners, controller.apiListeners...)
 			handlerFunc := createHandlerFuncFromApi(
 				route.Action,
 				requestListeners,
 				responseListeners,
 				journeyListeners,
+				server.errorAction,
 				)
 			var fullPath string
 			if controller.hasPrefix() {
@@ -201,13 +230,15 @@ func (server *Server) Start() error {
 		server.notFoundAction,
 		server.requestListeners,
 		server.responseListeners,
-		server.journeyListeners,
+		server.apiListeners,
+		server.errorAction,
 		))
 	engine.NoMethod(createHandlerFuncFromApi(
 		server.methodNotAllowedAction,
 		server.requestListeners,
 		server.responseListeners,
-		server.journeyListeners,
+		server.apiListeners,
+		server.errorAction,
 		))
 	return engine.Run(fmt.Sprintf(":%d", server.port))
 }
@@ -217,6 +248,7 @@ func NewServer(port int) *Server {
 		port: port,
 		notFoundAction: notFoundDefaultAction,
 		methodNotAllowedAction: methodNotAllowedDefaultAction,
+		errorAction: errorAction,
 	}
 }
 
