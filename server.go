@@ -20,7 +20,7 @@ type Server struct {
 	apiListeners           []APIListener
 	notFoundAction         API
 	methodNotAllowedAction API
-	errorAction            API
+	errorAction            ErrorHandler
 }
 
 func (server *Server) Register(controllers ...*Controller) {
@@ -47,7 +47,7 @@ func (server *Server) MethodNowAllowedAction(action API) {
 	server.methodNotAllowedAction = action
 }
 
-func (server *Server) ServerErrorAction(action API) {
+func (server *Server) ServerErrorAction(action ErrorHandler) {
 	server.errorAction = action
 }
 
@@ -62,7 +62,7 @@ func createHandlerFuncFromApi(
 	requestListeners []RequestListener,
 	responseListeners []ResponseListener,
 	apiListeners []APIListener,
-	recovery API,
+	recovery ErrorHandler,
 	) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		queryParams := make(map[string][]string, 10)
@@ -98,8 +98,9 @@ func createHandlerFuncFromApi(
 		}
 		defer func() {
 			if err := recover(); err != nil {
-				isr := recovery(rc)
+				isr := recovery(rc, err)
 				body, _ := json.Marshal(isr.Entity)
+				context.Writer.Header().Add(contentTypeKey, applicationJsonType)
 				context.Status(isr.StatusCode)
 				context.Writer.Write(body)
 			}
@@ -193,7 +194,8 @@ var methodNotAllowedDefaultAction API = func(request RequestContext) Status {
 	})
 }
 
-var errorAction API = func(request RequestContext) Status {
+var errorAction ErrorHandler = func(request RequestContext, err any) Status {
+	stginLogger.ErrorF("Recovered following error: %v", fmt.Sprint(err))
 	return InternalServerError(&generalFailureMessage{
 		StatusCode: 500,
 		Path:       request.Url,
