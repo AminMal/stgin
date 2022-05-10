@@ -4,13 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/AminMal/slogger/colored"
-	"github.com/gin-gonic/gin"
 	"mime/multipart"
 	"net/http"
 	"time"
 )
-
-// This file is the part that underlying library changes are applied
 
 type Server struct {
 	port                   int
@@ -55,46 +52,46 @@ type msg struct {
 	Message string `json:"message"`
 }
 
-// this is where the integration happens, having all the information from request context of underlying framework
-// and API with all the other things, now combine the smallest unit of stgin (API) with gin (HandlerFunc)
-func createHandlerFuncFromApi(
+func translate(
 	api API,
 	requestListeners []RequestListener,
 	responseListeners []ResponseListener,
 	apiListeners []APIListener,
 	recovery ErrorHandler,
-) gin.HandlerFunc {
-	return func(context *gin.Context) {
-		queryParams := make(map[string][]string, 10)
-		for key, value := range context.Request.URL.Query() {
-			queryParams[key] = value
+	pathParams Params,
+) http.HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		queries := make(map[string][]string, 10)
+		for key, value := range request.URL.Query() {
+			queries[key] = value
 		}
 
-		pathParams := make(map[string]string, 10)
+		pp := make(map[string]string)
 
-		for _, param := range context.Params {
-			pathParams[param.Key] = param.Value
+		for _, q := range pathParams {
+			pp[q.key] = q.value
 		}
 
-		url := context.FullPath()
-		headers := context.Request.Header
-		body, err := bodyFromReadCloser(context.Request.Body)
+		url := request.URL.Path
+		headers := request.Header
+		body, err := bodyFromReadCloser(request.Body)
 		rc := RequestContext{
 			Url:           url,
-			QueryParams:   queryParams,
-			PathParams:    pathParams,
+			QueryParams:   queries,
+			PathParams:    pp,
 			Headers:       headers,
 			Body:          body,
 			receivedAt:    time.Now(),
-			Method:        context.Request.Method,
-			ContentLength: context.Request.ContentLength,
-			Host:          context.Request.Host,
+			Method:        request.Method,
+			ContentLength: request.ContentLength,
+			Host:          request.Host,
 			MultipartForm: func() *multipart.Form {
-				return context.Request.MultipartForm
+				return request.MultipartForm
 			},
-			Scheme:     context.Request.URL.Scheme,
-			RemoteAddr: context.Request.RemoteAddr,
+			Scheme:     request.URL.Scheme,
+			RemoteAddr: request.RemoteAddr,
 		}
+
 		for _, requestListener := range requestListeners {
 			rc = requestListener(rc)
 		}
@@ -102,9 +99,9 @@ func createHandlerFuncFromApi(
 			if err := recover(); err != nil {
 				isr := recovery(rc, err)
 				body, _ := json.Marshal(isr.Entity)
-				context.Writer.Header().Add(contentTypeKey, applicationJsonType)
-				context.Status(isr.StatusCode)
-				context.Writer.Write(body)
+				writer.Header().Add(contentTypeKey, applicationJsonType)
+				writer.WriteHeader(isr.StatusCode)
+				_, _ = writer.Write(body)
 			}
 		}()
 
@@ -118,11 +115,11 @@ func createHandlerFuncFromApi(
 		}
 
 		if result.isRedirection() {
-			http.Redirect(context.Writer, context.Request, fmt.Sprint(result.Entity), result.StatusCode)
+			http.Redirect(writer, request, fmt.Sprint(result.Entity), result.StatusCode)
 			return
 		}
 		statusCode := result.StatusCode
-		context.Status(result.StatusCode)
+		writer.WriteHeader(result.StatusCode)
 		responseBody, err := json.Marshal(result.Entity)
 		if err != nil {
 			statusCode = http.StatusInternalServerError
@@ -133,15 +130,15 @@ func createHandlerFuncFromApi(
 		} else {
 			for key, values := range result.Headers {
 				for _, value := range values {
-					context.Writer.Header().Add(key, value)
+					writer.Header().Add(key, value)
 				}
 			}
 		}
-		context.Status(statusCode)
-		if context.Writer.Header().Get(contentTypeKey) == "" {
-			context.Writer.Header().Add(contentTypeKey, applicationJsonType)
+		writer.WriteHeader(statusCode)
+		if writer.Header().Get(contentTypeKey) == "" {
+			writer.Header().Add(contentTypeKey, applicationJsonType)
 		}
-		_, err = context.Writer.Write(responseBody)
+		_, err = writer.Write(responseBody)
 		if err != nil {
 			// log failure here
 		}
@@ -212,46 +209,99 @@ var errorAction ErrorHandler = func(request RequestContext, err any) Status {
 	})
 }
 
-func (server *Server) Start() error {
-	engine := gin.New()
-	controllers := server.Controllers
-	for _, controller := range controllers {
-		for _, route := range controller.routes {
-			requestListeners := append(server.requestListeners, controller.requestListeners...)
-			responseListeners := append(server.responseListeners, controller.responseListeners...)
-			journeyListeners := append(server.apiListeners, controller.apiListeners...)
-			handlerFunc := createHandlerFuncFromApi(
-				route.Action,
-				requestListeners,
-				responseListeners,
-				journeyListeners,
-				server.errorAction,
-			)
-			var fullPath string
-			if controller.hasPrefix() {
-				fullPath = fmt.Sprintf("%v%v", controller.prefix, route.Path)
-			} else {
-				fullPath = route.Path
+type serverHandler struct {
+	methodWithRoutes map[string][]Route // to optimize request matching time
+	server           *Server
+}
+
+func (sh serverHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	var done bool
+	for method, routes := range sh.methodWithRoutes {
+		if method != request.Method {
+			continue
+		}
+		// method matches
+		for _, route := range routes {
+			accepts, pathParams := route.acceptsAndPathParams(request)
+			if accepts {
+				requestListeners := append(sh.server.requestListeners, route.controller.requestListeners...)
+				responseListeners := append(sh.server.responseListeners, route.controller.responseListeners...)
+				apiListeners := append(sh.server.apiListeners, route.controller.apiListeners...)
+				handlerFunc := translate(
+					route.Action,
+					requestListeners,
+					responseListeners,
+					apiListeners,
+					sh.server.errorAction,
+					pathParams,
+				)
+				handlerFunc(writer, request)
+				done = true
+				break
 			}
-			engine.Handle(route.Method, fullPath, handlerFunc)
 		}
 	}
-	engine.NoRoute(createHandlerFuncFromApi(
-		server.notFoundAction,
-		server.requestListeners,
-		server.responseListeners,
-		server.apiListeners,
-		server.errorAction,
-	))
-	engine.NoMethod(createHandlerFuncFromApi(
-		server.methodNotAllowedAction,
-		server.requestListeners,
-		server.responseListeners,
-		server.apiListeners,
-		server.errorAction,
-	))
-	engine.HandleMethodNotAllowed = true
-	return engine.Run(fmt.Sprintf(":%d", server.port))
+	if !done {
+		body, _ := bodyFromReadCloser(request.Body)
+		status := sh.server.notFoundAction(
+			RequestContext{
+				Url:           request.URL.Path,
+				QueryParams:   request.URL.Query(),
+				PathParams:    nil,
+				Headers:       request.Header,
+				Body:          body,
+				receivedAt:    time.Now(),
+				Method:        request.Method,
+				ContentLength: request.ContentLength,
+				Host:          request.Host,
+				MultipartForm: func() *multipart.Form {
+					return request.MultipartForm
+				},
+				Scheme:     request.URL.Scheme,
+				RemoteAddr: request.RemoteAddr,
+			},
+		)
+		writer.WriteHeader(status.StatusCode)
+		writer.Header().Add(contentTypeKey, applicationJsonType)
+		bytes, marshalErr := json.Marshal(status.Entity)
+		if marshalErr != nil {
+			stginLogger.ErrorF(
+				"could not marshal not found action result:\n\t%v%v%v",
+				colored.RED, fmt.Sprint(marshalErr), colored.ResetPrevColor,
+			)
+			bytes, _ = json.Marshal(&generalFailureMessage{
+				StatusCode: 404,
+				Path:       request.URL.Path,
+				Message:    "route not found",
+				Method:     request.Method,
+			})
+		}
+		writer.Write(bytes)
+	}
+}
+
+func (server *Server) handler() http.Handler {
+	methodWithRoutes := make(map[string][]Route)
+	for _, controller := range server.Controllers {
+		for _, route := range controller.routes {
+			if controller.hasPrefix() {
+				methodWithRoutes[route.Method] = append(
+					methodWithRoutes[route.Method],
+					route.withPrefixPrepended(controller.prefix),
+				)
+			} else {
+				methodWithRoutes[route.Method] = append(
+					methodWithRoutes[route.Method],
+					route,
+				)
+			}
+		}
+	}
+	return serverHandler{methodWithRoutes: methodWithRoutes}
+}
+
+func (server *Server) Start() error {
+	return http.ListenAndServe(fmt.Sprintf(":%d", server.port), server.handler())
 }
 
 func NewServer(port int) *Server {

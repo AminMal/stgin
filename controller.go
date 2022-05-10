@@ -16,7 +16,7 @@ type Controller struct {
 
 func NewController(name string) *Controller {
 	return &Controller{
-		Name:   name,
+		Name: name,
 	}
 }
 
@@ -29,6 +29,10 @@ func (controller *Controller) SetRoutePrefix(prefix string) {
 }
 
 func (controller *Controller) AddRoutes(routes ...Route) {
+	for _, route := range routes {
+		route.controller = controller
+		controller.routes = append(controller.routes, route)
+	}
 	controller.routes = append(controller.routes, routes...)
 }
 

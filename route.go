@@ -1,13 +1,29 @@
 package stgin
 
-import "strings"
+import (
+	"net/http"
+	"strings"
+)
 
 type API = func(c RequestContext) Status
 
 type Route struct {
-	Path   string
-	Method string
-	Action API
+	Path       string
+	Method     string
+	Action     API
+	controller *Controller
+}
+
+func (route Route) withPrefixPrepended(controllerPrefix string) Route {
+	route.Path += controllerPrefix
+	return route
+}
+
+func (route Route) acceptsAndPathParams(request *http.Request) (ok bool, params Params) {
+	if request.Method == route.Method {
+		params, ok = matchAndExtractPathParams(route.Path, request.URL.Path)
+	}
+	return
 }
 
 func GET(path string, api API) Route {
