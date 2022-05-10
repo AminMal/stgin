@@ -224,9 +224,12 @@ func (sh serverHandler) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 		for _, route := range routes {
 			accepts, pathParams := route.acceptsAndPathParams(request)
 			if accepts {
-				requestListeners := append(sh.server.requestListeners, route.controller.requestListeners...)
-				responseListeners := append(sh.server.responseListeners, route.controller.responseListeners...)
-				apiListeners := append(sh.server.apiListeners, route.controller.apiListeners...)
+				//requestListeners := append(sh.server.requestListeners, route.controller.requestListeners...)
+				requestListeners := sh.server.requestListeners
+				//responseListeners := append(sh.server.responseListeners, route.controller.responseListeners...)
+				responseListeners := sh.server.responseListeners
+				//apiListeners := append(sh.server.apiListeners, route.controller.apiListeners...)
+				apiListeners := sh.server.apiListeners
 				handlerFunc := translate(
 					route.Action,
 					requestListeners,
