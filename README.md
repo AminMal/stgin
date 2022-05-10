@@ -2,8 +2,6 @@
 
 STgin is a functional rest framework that provides easy APIs in order to maintain your application RESTful API server.
 
-It is currently built upon go-gin framework, but has the ability to easily switch between any other library/framework using the translator function in server file.
-
 A comparison between STgin and go-gin, writing a simple API:
 ```go
 // Given response type as
