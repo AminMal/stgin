@@ -24,6 +24,7 @@ func NewController(name string) *Controller {
 }
 
 func (controller *Controller) SetRoutePrefix(prefix string) {
+	prefix = normalizePath(prefix)
 	if strings.HasPrefix(prefix, "/") {
 		controller.prefix = prefix
 	} else {
@@ -74,8 +75,8 @@ func (controller *Controller) executeInternal(request *http.Request) Status {
 		MultipartForm: func() *multipart.Form {
 			return request.MultipartForm
 		},
-		Scheme:        request.URL.Scheme,
-		RemoteAddr:    request.RemoteAddr,
+		Scheme:     request.URL.Scheme,
+		RemoteAddr: request.RemoteAddr,
 	}
 
 	for _, modifier := range controller.requestListeners {
@@ -102,7 +103,12 @@ func (controller *Controller) executeInternal(request *http.Request) Status {
 		}
 	}
 	if !done {
-		result = NotFound(&msg{Message: "not found"})
+		result = NotFound(&generalFailureMessage{
+			StatusCode: 404,
+			Path:       request.URL.Path,
+			Message:    "not found",
+			Method:     request.Method,
+		})
 	}
 
 	for _, modifier := range controller.responseListeners {

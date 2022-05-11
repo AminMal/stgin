@@ -28,7 +28,7 @@ func (route Route) acceptsAndPathParams(request *http.Request) (ok bool, params 
 
 func GET(path string, api API) Route {
 	return Route{
-		Path:   path,
+		Path:   normalizePath(path),
 		Method: "GET",
 		Action: api,
 	}
@@ -36,7 +36,7 @@ func GET(path string, api API) Route {
 
 func PUT(path string, api API) Route {
 	return Route{
-		Path:   path,
+		Path:   normalizePath(path),
 		Method: "PUT",
 		Action: api,
 	}
@@ -44,7 +44,7 @@ func PUT(path string, api API) Route {
 
 func POST(path string, api API) Route {
 	return Route{
-		Path:   path,
+		Path:   normalizePath(path),
 		Method: "POST",
 		Action: api,
 	}
@@ -52,7 +52,7 @@ func POST(path string, api API) Route {
 
 func DELETE(path string, api API) Route {
 	return Route{
-		Path:   path,
+		Path:   normalizePath(path),
 		Method: "DELETE",
 		Action: api,
 	}
@@ -60,7 +60,7 @@ func DELETE(path string, api API) Route {
 
 func PATCH(path string, api API) Route {
 	return Route{
-		Path:   path,
+		Path:   normalizePath(path),
 		Method: "PATCH",
 		Action: api,
 	}
@@ -68,7 +68,7 @@ func PATCH(path string, api API) Route {
 
 func OPTIONS(path string, api API) Route {
 	return Route{
-		Path:   path,
+		Path:   normalizePath(path),
 		Method: "OPTIONS",
 		Action: api,
 	}
@@ -99,47 +99,47 @@ func (stage RouteCreationStage) Do(api API) Route {
 func OnGET(path string) RouteCreationStage {
 	return RouteCreationStage{
 		method: "GET",
-		path:   path,
+		path:   normalizePath(path),
 	}
 }
 
 func OnPUT(path string) RouteCreationStage {
 	return RouteCreationStage{
 		method: "PUT",
-		path:   path,
+		path:   normalizePath(path),
 	}
 }
 
 func OnPOST(path string) RouteCreationStage {
 	return RouteCreationStage{
 		method: "POST",
-		path:   path,
+		path:   normalizePath(path),
 	}
 }
 
 func OnDelete(path string) RouteCreationStage {
 	return RouteCreationStage{
 		method: "DELETE",
-		path:   path,
+		path:   normalizePath(path),
 	}
 }
 
 func OnPatch(path string) RouteCreationStage {
 	return RouteCreationStage{
 		method: "PATCH",
-		path:   path,
+		path:   normalizePath(path),
 	}
 }
 
 func OnOptions(path string) RouteCreationStage {
 	return RouteCreationStage{
 		method: "OPTIONS",
-		path:   path,
+		path:   normalizePath(path),
 	}
 }
 
 func OnPath(path string) RouteCreationStage {
-	return RouteCreationStage{path: path}
+	return RouteCreationStage{path: normalizePath(path)}
 }
 
 func (stage RouteCreationStage) WithMethod(method string) RouteCreationStage {

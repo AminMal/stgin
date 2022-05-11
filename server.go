@@ -187,7 +187,7 @@ var methodNotAllowedDefaultAction API = func(request RequestContext) Status {
 }
 
 var errorAction ErrorHandler = func(request RequestContext, err any) Status {
-	callers := relevantCaller()
+	callers := relevantCallers()
 	var stacktrace = fmt.Sprintf("recovering following error: %v%v%v", colored.RED, fmt.Sprint(err), colored.ResetPrevColor)
 	for _, caller := range callers {
 		stacktrace += fmt.Sprintf("\tIn: %s (%s:%d)\n", caller.Function, path.Base(caller.File), caller.Line)
@@ -291,7 +291,7 @@ func (server *Server) handler() http.Handler {
 			} else {
 				r = route
 			}
-			methodWithRoutes[route.Method] = append( methodWithRoutes[route.Method], r)
+			methodWithRoutes[route.Method] = append(methodWithRoutes[route.Method], r)
 			log = fmt.Sprintf("Adding %v's API:\t%v -> %v", route.controller.Name, r.Method, r.Path)
 
 			stginLogger.Info(log)
