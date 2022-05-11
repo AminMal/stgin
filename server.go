@@ -6,7 +6,6 @@ import (
 	"github.com/AminMal/slogger/colored"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path"
 	"time"
 )
@@ -292,7 +291,11 @@ func (server *Server) handler() http.Handler {
 				r = route
 			}
 			methodWithRoutes[route.Method] = append(methodWithRoutes[route.Method], r)
-			log = fmt.Sprintf("Adding %v's API:\t%v -> %v", route.controller.Name, r.Method, r.Path)
+			log = fmt.Sprintf("Adding %v's API:\t%s%v%s -> %s%v%s",
+				route.controller.Name,
+				colored.CYAN, r.Method, colored.ResetPrevColor,
+				colored.CYAN, r.Path, colored.ResetPrevColor,
+			)
 
 			stginLogger.Info(log)
 		}
@@ -301,12 +304,13 @@ func (server *Server) handler() http.Handler {
 }
 
 func (server *Server) Start() error {
-	stginLogger.InfoF("starting server on port: %d", server.port)
+	stginLogger.InfoF("starting server on port: %s%d%s", colored.YELLOW, server.port, colored.ResetPrevColor)
 	return http.ListenAndServe(fmt.Sprintf(":%d", server.port), server.handler())
 }
 
 func (server *Server) Stop() {
-	os.Exit(1)
+	stginLogger.Err("stopping server due to explicit stop call")
+	panic("stopping server due to explicit stop call")
 }
 
 func NewServer(port int) *Server {
