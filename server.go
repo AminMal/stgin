@@ -188,7 +188,7 @@ var methodNotAllowedDefaultAction API = func(request RequestContext) Status {
 
 var errorAction ErrorHandler = func(request RequestContext, err any) Status {
 	callers := relevantCallers()
-	var stacktrace = fmt.Sprintf("recovering following error: %v%v%v", colored.RED, fmt.Sprint(err), colored.ResetPrevColor)
+	var stacktrace = fmt.Sprintf("recovering following error: %v%v%v\n", colored.RED, fmt.Sprint(err), colored.ResetPrevColor)
 	for _, caller := range callers {
 		stacktrace += fmt.Sprintf("\tIn: %s (%s:%d)\n", caller.Function, path.Base(caller.File), caller.Line)
 	}
