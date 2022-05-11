@@ -6,6 +6,8 @@ import (
 	"github.com/AminMal/slogger/colored"
 	"mime/multipart"
 	"net/http"
+	"os"
+	"path"
 	"time"
 )
 
@@ -66,19 +68,13 @@ func translate(
 			queries[key] = value
 		}
 
-		pp := make(map[string]string)
-
-		for _, q := range pathParams {
-			pp[q.key] = q.value
-		}
-
 		url := request.URL.Path
 		headers := request.Header
 		body, err := bodyFromReadCloser(request.Body)
 		rc := RequestContext{
 			Url:           url,
 			QueryParams:   queries,
-			PathParams:    pp,
+			PathParams:    pathParams,
 			Headers:       headers,
 			Body:          body,
 			receivedAt:    time.Now(),
@@ -123,7 +119,7 @@ func translate(
 		responseBody, err := json.Marshal(result.Entity)
 		if err != nil {
 			statusCode = http.StatusInternalServerError
-			// log error here
+			stginLogger.ErrorF("error while marshalling request entity:\n\t%v", fmt.Sprintf("%s%s%s", colored.RED, err.Error(), colored.ResetPrevColor))
 			isr := msg{Message: "internal server error"}
 			isrBytes, _ := json.Marshal(InternalServerError(&isr))
 			responseBody = isrBytes
@@ -140,7 +136,7 @@ func translate(
 		}
 		_, err = writer.Write(responseBody)
 		if err != nil {
-			// log failure here
+			stginLogger.ErrorF("error while writing response to client:\n\t%s", fmt.Sprintf("%s%s%s", colored.RED, err.Error(), colored.ResetPrevColor))
 		}
 	}
 }
@@ -191,6 +187,11 @@ var methodNotAllowedDefaultAction API = func(request RequestContext) Status {
 }
 
 var errorAction ErrorHandler = func(request RequestContext, err any) Status {
+	callers := relevantCaller()
+	var stacktrace = fmt.Sprintf("recovering following error: %v%v%v", colored.RED, fmt.Sprint(err), colored.ResetPrevColor)
+	for _, caller := range callers {
+		stacktrace += fmt.Sprintf("\tIn: %s (%s:%d)\n", caller.Function, path.Base(caller.File), caller.Line)
+	}
 	if parseErr, isParseError := err.(ParseError); isParseError {
 		return BadRequest(&generalFailureMessage{
 			StatusCode: 400,
@@ -198,9 +199,8 @@ var errorAction ErrorHandler = func(request RequestContext, err any) Status {
 			Message:    parseErr.Error(),
 			Method:     request.Method,
 		})
-	} // enough for now, user should be able to easily detect and provide actions for both client and server error
-	errorRepr := fmt.Sprintf("%v%v%v", colored.RED, fmt.Sprint(err), colored.ResetPrevColor)
-	stginLogger.ErrorF("Recovered following error:\n\t%v\n", errorRepr)
+	}
+	stginLogger.Err(stacktrace)
 	return InternalServerError(&generalFailureMessage{
 		StatusCode: 500,
 		Path:       request.Url,
@@ -285,19 +285,14 @@ func (server *Server) handler() http.Handler {
 	for _, controller := range server.Controllers {
 		for _, route := range controller.routes {
 			var log string
+			var r Route
 			if controller.hasPrefix() {
-				log = fmt.Sprintf("Adding %v's API:\t%v -> %v", route.controller.Name, route.Method, route.withPrefixPrepended(controller.prefix))
-				methodWithRoutes[route.Method] = append(
-					methodWithRoutes[route.Method],
-					route.withPrefixPrepended(controller.prefix),
-				)
+				r = route.withPrefixPrepended(controller.prefix)
 			} else {
-				log = fmt.Sprintf("Adding %v's API:\t%v -> %v", route.controller.Name, route.Method, route.Path)
-				methodWithRoutes[route.Method] = append(
-					methodWithRoutes[route.Method],
-					route,
-				)
+				r = route
 			}
+			methodWithRoutes[route.Method] = append( methodWithRoutes[route.Method], r)
+			log = fmt.Sprintf("Adding %v's API:\t%v -> %v", route.controller.Name, r.Method, r.Path)
 
 			stginLogger.Info(log)
 		}
@@ -308,6 +303,10 @@ func (server *Server) handler() http.Handler {
 func (server *Server) Start() error {
 	stginLogger.InfoF("starting server on port: %d", server.port)
 	return http.ListenAndServe(fmt.Sprintf(":%d", server.port), server.handler())
+}
+
+func (server *Server) Stop() {
+	os.Exit(1)
 }
 
 func NewServer(port int) *Server {
