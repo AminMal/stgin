@@ -29,8 +29,10 @@ func relevantCallers() []runtime.Frame {
 	var fs []runtime.Frame
 	for {
 		f, more := frames.Next()
-		if more && !strings.HasPrefix(f.Function, "github.com/AminMal/stgin.") {
-			fs = append(fs, f)
+		if more {
+			if !strings.HasPrefix(f.Function, "github.com/AminMal/stgin.") {
+				fs = append(fs, f)
+			}
 		} else {
 			break
 		}
