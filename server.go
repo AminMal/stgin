@@ -62,13 +62,13 @@ func write(status Status, rw http.ResponseWriter) {
 	rw.WriteHeader(status.StatusCode)
 	for key, values := range status.Headers {
 		for _, value := range values {
-			rw.Header().Add(key, value)
+			rw.Header().Set(key, value)
 		}
 	}
 	for _, cookie := range status.cookies {
 		http.SetCookie(rw, cookie)
 	}
-	rw.Header().Add(contentTypeKey, contentType)
+	rw.Header().Set(contentTypeKey, contentType)
 	_, err := rw.Write(bytes)
 	if err != nil {
 		stginLogger.ErrorF("error while writing response to client:\n\t%s", fmt.Sprintf("%s%s%s", colored.RED, err.Error(), colored.ResetPrevColor))
@@ -279,7 +279,7 @@ func (sh serverHandler) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 			contentType = applicationJson
 		}
 		writer.WriteHeader(statusCode)
-		writer.Header().Add(contentTypeKey, contentType)
+		writer.Header().Set(contentTypeKey, contentType)
 		writer.Write(bodyBtes)
 	}
 }
