@@ -284,17 +284,22 @@ func (server *Server) handler() http.Handler {
 	methodWithRoutes := make(map[string][]Route)
 	for _, controller := range server.Controllers {
 		for _, route := range controller.routes {
+			var log string
 			if controller.hasPrefix() {
+				log = fmt.Sprintf("Adding %v's API:\t%v -> %v", route.controller.Name, route.Method, route.withPrefixPrepended(controller.prefix))
 				methodWithRoutes[route.Method] = append(
 					methodWithRoutes[route.Method],
 					route.withPrefixPrepended(controller.prefix),
 				)
 			} else {
+				log = fmt.Sprintf("Adding %v's API:\t%v -> %v", route.controller.Name, route.Method, route.Path)
 				methodWithRoutes[route.Method] = append(
 					methodWithRoutes[route.Method],
 					route,
 				)
 			}
+
+			stginLogger.Info(log)
 		}
 	}
 	return serverHandler{methodWithRoutes: methodWithRoutes, server: server}
