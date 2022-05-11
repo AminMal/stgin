@@ -2,7 +2,10 @@ package stgin
 
 import (
 	"fmt"
+	"mime/multipart"
+	"net/http"
 	"strings"
+	"time"
 )
 
 type Controller struct {
@@ -49,4 +52,66 @@ func (controller *Controller) AddAPIListeners(listeners ...APIListener) {
 
 func (controller *Controller) hasPrefix() bool {
 	return controller.prefix != ""
+}
+
+func (controller *Controller) executeInternal(request *http.Request) Status {
+	body := RequestBody{
+		underlying:      nil,
+		underlyingBytes: []byte{},
+		hasFilledBytes:  false,
+	}
+
+	rc := RequestContext{
+		Url:           request.URL.Path,
+		QueryParams:   request.URL.Query(),
+		PathParams:    nil,
+		Headers:       request.Header,
+		Body:          &body,
+		receivedAt:    time.Now(),
+		Method:        request.Method,
+		ContentLength: request.ContentLength,
+		Host:          request.Host,
+		MultipartForm: func() *multipart.Form {
+			return request.MultipartForm
+		},
+		Scheme:        request.URL.Scheme,
+		RemoteAddr:    request.RemoteAddr,
+	}
+
+	for _, modifier := range controller.requestListeners {
+		rc = modifier(rc)
+	}
+
+	var done bool
+	var result Status
+	for _, route := range controller.routes {
+		var r Route
+		if controller.hasPrefix() {
+			r = route.withPrefixPrepended(controller.prefix)
+		} else {
+			r = route
+		}
+		matches, pathParams := r.acceptsAndPathParams(request)
+		if !matches {
+			continue
+		} else {
+			rc.PathParams = pathParams
+			done = true
+			result = route.Action(rc)
+			break
+		}
+	}
+	if !done {
+		result = NotFound(&msg{Message: "not found"})
+	}
+
+	for _, modifier := range controller.responseListeners {
+		result = modifier(result)
+	}
+
+	for _, watcher := range controller.apiListeners {
+		watcher(rc, result)
+	}
+
+	return result
 }
