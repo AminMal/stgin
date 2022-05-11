@@ -79,6 +79,27 @@ The structure of STgin types and interfaces is pretty simple, a `Server` may hav
 
 **API:** Is a type alias for a function which accepts a request context and returns a status.
 
+# Path Parameters
+* How to define?
+
+    When defining a route, there are 2 possible values between any 2 slashes, a literal string (like ".../home/..."), or a path parameter specification.
+    Path parameters must have a name, and an optional type which the parameter might have (string is used as default, if no type or an invalid type is provided).
+  
+    ```
+            //same as $username:string
+    stgin.GET("/users/$username/purchases/$purchase_id:int". ...)
+  
+    // "/users/$username/purchases/$purchase_id" also accepts the correct route like "/users/John/purchases/12",
+    // but in case an alphanumeric value is passed as purchase_id, conversion from string to int in the api is manual
+    // and needs manual error checking
+    ```
+* How to get?
+    ```
+    username, exists := request.GetPathParam("username")
+    // or if you're sure about the existence, 
+    username := request.MustGetPathParam("username")
+    ```
+    
 ## Custom Actions
 STgin does not provide actions about stuff like Authentication, because simple authentication is not useful most of the time, and you may need customized authentications.
 
@@ -97,7 +118,7 @@ func authenticate(rc stgin.RequestContext) (AuthInfo, bool) {
         ...
     }
 }
-// written once in your base package
+
 func Authenticated(rc stgin.RequestContext, action func(AuthInfo) stgin.Status) stgin.Status {
     authInfo, isAuthenticated := authenticate(rc)
     if !isAuthenticated {

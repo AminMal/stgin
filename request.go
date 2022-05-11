@@ -3,6 +3,7 @@ package stgin
 import (
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -36,6 +37,14 @@ func (c RequestContext) GetPathParam(name string) (string, bool) {
 		}
 	}
 	return res, found
+}
+
+func (c RequestContext) MustGetPathParam(name string) string {
+	value, found := c.GetQuery(name)
+	if !found {
+		panic(fmt.Sprintf("used MustGetPathParam while path parameter %s does not exist", name))
+	}
+	return value
 }
 
 func (c RequestContext) GetQueries(name string) []string {
