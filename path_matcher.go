@@ -74,7 +74,7 @@ func MatchAndExtractPathParams(pattern, uri string) ([]Param, bool) {
 			rawPatternRegex += "/"
 		}
 	}
-	regex, compileErr := regexp.Compile(rawPatternRegex)
+	regex, compileErr := regexp.Compile("^" + rawPatternRegex + "$")
 	if compileErr != nil {
 		return nil, false
 	} else {

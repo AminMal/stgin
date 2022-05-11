@@ -53,6 +53,29 @@ type msg struct {
 	Message string `json:"message"`
 }
 
+func write(status Status, rw http.ResponseWriter) {
+	bytes, contentType, marshallErr := marshall(status.Entity)
+	if marshallErr != nil {
+		_ = stginLogger.ErrorF("error while marshalling request entity:\n\t%v", fmt.Sprintf("%s%s%s", colored.RED, marshallErr.Error(), colored.ResetPrevColor))
+		panic(marshallErr)
+	}
+	rw.WriteHeader(status.StatusCode)
+	for key, values := range status.Headers {
+		for _, value := range values {
+			rw.Header().Add(key, value)
+		}
+	}
+	for _, cookie := range status.cookies {
+		http.SetCookie(rw, cookie)
+	}
+	rw.Header().Add(contentTypeKey, contentType)
+	_, err := rw.Write(bytes)
+	if err != nil {
+		stginLogger.ErrorF("error while writing response to client:\n\t%s", fmt.Sprintf("%s%s%s", colored.RED, err.Error(), colored.ResetPrevColor))
+		panic(err)
+	}
+}
+
 func translate(
 	api API,
 	requestListeners []RequestListener,
@@ -69,7 +92,7 @@ func translate(
 
 		url := request.URL.Path
 		headers := request.Header
-		body, err := bodyFromReadCloser(request.Body)
+		body, _ := bodyFromReadCloser(request.Body)
 		rc := RequestContext{
 			Url:           url,
 			QueryParams:   queries,
@@ -95,11 +118,8 @@ func translate(
 				if recovery == nil {
 					panic(err)
 				} else {
-					isr := recovery(rc, err)
-					bodyBytes, contentType, _ := marshall(isr.Entity)
-					writer.Header().Add(contentTypeKey, contentType)
-					writer.WriteHeader(isr.StatusCode)
-					_, _ = writer.Write(bodyBytes)
+					status := recovery(rc, err)
+					write(status, writer)
 				}
 			}
 		}()
@@ -118,39 +138,7 @@ func translate(
 			http.Redirect(writer, request, string(location), result.StatusCode)
 			return
 		}
-		statusCode := result.StatusCode
-		writer.WriteHeader(result.StatusCode)
-		responseBody, contentType, err := marshall(result.Entity)
-		if err != nil {
-			statusCode = http.StatusInternalServerError
-			_ = stginLogger.ErrorF("error while marshalling request entity:\n\t%v", fmt.Sprintf("%s%s%s", colored.RED, err.Error(), colored.ResetPrevColor))
-			ise := generalFailureMessage{
-				Message:    "internal server error",
-				Path:       request.URL.Path,
-				StatusCode: statusCode,
-				Method:     request.Method,
-			}
-			isrBytes, _ := json.Marshal(&ise)
-			contentType = applicationJson
-			responseBody = isrBytes
-		} else {
-			for _, cookie := range result.cookies {
-				http.SetCookie(writer, cookie)
-			}
-			for key, values := range result.Headers {
-				for _, value := range values {
-					writer.Header().Add(key, value)
-				}
-			}
-		}
-		writer.WriteHeader(statusCode)
-		if writer.Header().Get(contentTypeKey) == "" {
-			writer.Header().Add(contentTypeKey, contentType)
-		}
-		_, err = writer.Write(responseBody)
-		if err != nil {
-			stginLogger.ErrorF("error while writing response to client:\n\t%s", fmt.Sprintf("%s%s%s", colored.RED, err.Error(), colored.ResetPrevColor))
-		}
+		write(result, writer)
 	}
 }
 

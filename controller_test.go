@@ -62,6 +62,10 @@ func TestControllerListeners(t *testing.T) {
 	if dummyQuery != "yes" {
 		t.Fatalf("request listener did not work properly")
 	}
+
+	if res.Entity.ContentType() != "application/json" {
+		t.Fatal("content type is not as expected")
+	}
 }
 
 func BenchmarkPing(b *testing.B) {
