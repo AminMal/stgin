@@ -15,13 +15,13 @@ type Route struct {
 }
 
 func (route Route) withPrefixPrepended(controllerPrefix string) Route {
-	route.Path += controllerPrefix
+	route.Path = controllerPrefix + route.Path
 	return route
 }
 
 func (route Route) acceptsAndPathParams(request *http.Request) (ok bool, params Params) {
 	if request.Method == route.Method {
-		params, ok = matchAndExtractPathParams(route.Path, request.URL.Path)
+		params, ok = MatchAndExtractPathParams(route.Path, request.URL.Path)
 	}
 	return
 }
