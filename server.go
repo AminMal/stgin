@@ -92,11 +92,15 @@ func translate(
 		}
 		defer func() {
 			if err := recover(); err != nil {
-				isr := recovery(rc, err)
-				body, _ := json.Marshal(isr.Entity)
-				writer.Header().Add(contentTypeKey, applicationJsonType)
-				writer.WriteHeader(isr.StatusCode)
-				_, _ = writer.Write(body)
+				if recovery == nil {
+					panic(err)
+				} else {
+					isr := recovery(rc, err)
+					bodyBytes, contentType, _ := marshall(isr.Entity)
+					writer.Header().Add(contentTypeKey, contentType)
+					writer.WriteHeader(isr.StatusCode)
+					_, _ = writer.Write(bodyBytes)
+				}
 			}
 		}()
 
@@ -110,19 +114,29 @@ func translate(
 		}
 
 		if result.isRedirection() {
-			http.Redirect(writer, request, fmt.Sprint(result.Entity), result.StatusCode)
+			location, _ := result.Entity.Bytes()
+			http.Redirect(writer, request, string(location), result.StatusCode)
 			return
 		}
 		statusCode := result.StatusCode
 		writer.WriteHeader(result.StatusCode)
-		responseBody, err := json.Marshal(result.Entity)
+		responseBody, contentType, err := marshall(result.Entity)
 		if err != nil {
 			statusCode = http.StatusInternalServerError
-			stginLogger.ErrorF("error while marshalling request entity:\n\t%v", fmt.Sprintf("%s%s%s", colored.RED, err.Error(), colored.ResetPrevColor))
-			isr := msg{Message: "internal server error"}
-			isrBytes, _ := json.Marshal(InternalServerError(&isr))
+			_ = stginLogger.ErrorF("error while marshalling request entity:\n\t%v", fmt.Sprintf("%s%s%s", colored.RED, err.Error(), colored.ResetPrevColor))
+			ise := generalFailureMessage{
+				Message:    "internal server error",
+				Path:       request.URL.Path,
+				StatusCode: statusCode,
+				Method:     request.Method,
+			}
+			isrBytes, _ := json.Marshal(&ise)
+			contentType = applicationJson
 			responseBody = isrBytes
 		} else {
+			for _, cookie := range result.cookies {
+				http.SetCookie(writer, cookie)
+			}
 			for key, values := range result.Headers {
 				for _, value := range values {
 					writer.Header().Add(key, value)
@@ -131,7 +145,7 @@ func translate(
 		}
 		writer.WriteHeader(statusCode)
 		if writer.Header().Get(contentTypeKey) == "" {
-			writer.Header().Add(contentTypeKey, applicationJsonType)
+			writer.Header().Add(contentTypeKey, contentType)
 		}
 		_, err = writer.Write(responseBody)
 		if err != nil {
@@ -157,7 +171,7 @@ var WatchAPIs APIListener = func(request RequestContext, status Status) {
 	now := time.Now()
 	difference := fmt.Sprint(now.Sub(request.receivedAt))
 	statusString := fmt.Sprintf("%v%d%v", getColor(status.StatusCode), status.StatusCode, colored.ResetPrevColor)
-	stginLogger.InfoF("%v -> %v | %v | %v", request.Method, request.Url, statusString, difference)
+	_ = stginLogger.InfoF("%v -> %v | %v | %v", request.Method, request.Url, statusString, difference)
 }
 
 type generalFailureMessage struct {
@@ -168,21 +182,21 @@ type generalFailureMessage struct {
 }
 
 var notFoundDefaultAction API = func(request RequestContext) Status {
-	return NotFound(&generalFailureMessage{
+	return NotFound(Json(&generalFailureMessage{
 		StatusCode: 404,
 		Path:       request.Url,
 		Message:    "route not found",
 		Method:     request.Method,
-	})
+	}))
 }
 
 var methodNotAllowedDefaultAction API = func(request RequestContext) Status {
-	return MethodNotAllowed(&generalFailureMessage{
+	return MethodNotAllowed(Json(&generalFailureMessage{
 		StatusCode: http.StatusMethodNotAllowed,
 		Path:       request.Url,
 		Message:    "method " + request.Method + " not allowed!",
 		Method:     request.Method,
-	})
+	}))
 }
 
 var errorAction ErrorHandler = func(request RequestContext, err any) Status {
@@ -192,20 +206,20 @@ var errorAction ErrorHandler = func(request RequestContext, err any) Status {
 		stacktrace += fmt.Sprintf("\tIn: %s (%s:%d)\n", caller.Function, path.Base(caller.File), caller.Line)
 	}
 	if parseErr, isParseError := err.(ParseError); isParseError {
-		return BadRequest(&generalFailureMessage{
+		return BadRequest(Json(&generalFailureMessage{
 			StatusCode: 400,
 			Path:       request.Url,
 			Message:    parseErr.Error(),
 			Method:     request.Method,
-		})
+		}))
 	}
-	stginLogger.Err(stacktrace)
-	return InternalServerError(&generalFailureMessage{
+	_ = stginLogger.Err(stacktrace)
+	return InternalServerError(Json(&generalFailureMessage{
 		StatusCode: 500,
 		Path:       request.Url,
 		Message:    "internal server error",
 		Method:     request.Method,
-	})
+	}))
 }
 
 type serverHandler struct {
@@ -260,22 +274,25 @@ func (sh serverHandler) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 				RemoteAddr: request.RemoteAddr,
 			},
 		)
-		writer.WriteHeader(status.StatusCode)
-		writer.Header().Add(contentTypeKey, applicationJsonType)
-		bytes, marshalErr := json.Marshal(status.Entity)
+		statusCode := status.StatusCode
+		bodyBtes, contentType, marshalErr := marshall(status.Entity)
 		if marshalErr != nil {
-			stginLogger.ErrorF(
+			_ = stginLogger.ErrorF(
 				"could not marshal not found action result:\n\t%v%v%v",
 				colored.RED, fmt.Sprint(marshalErr), colored.ResetPrevColor,
 			)
-			bytes, _ = json.Marshal(&generalFailureMessage{
+			bodyBtes, _ = json.Marshal(&generalFailureMessage{
 				StatusCode: 404,
 				Path:       request.URL.Path,
 				Message:    "route not found",
 				Method:     request.Method,
 			})
+			statusCode = 404
+			contentType = applicationJson
 		}
-		writer.Write(bytes)
+		writer.WriteHeader(statusCode)
+		writer.Header().Add(contentTypeKey, contentType)
+		writer.Write(bodyBtes)
 	}
 }
 
@@ -297,19 +314,19 @@ func (server *Server) handler() http.Handler {
 				colored.CYAN, r.Path, colored.ResetPrevColor,
 			)
 
-			stginLogger.Info(log)
+			_ = stginLogger.Info(log)
 		}
 	}
 	return serverHandler{methodWithRoutes: methodWithRoutes, server: server}
 }
 
 func (server *Server) Start() error {
-	stginLogger.InfoF("starting server on port: %s%d%s", colored.YELLOW, server.port, colored.ResetPrevColor)
+	_ = stginLogger.InfoF("starting server on port: %s%d%s", colored.YELLOW, server.port, colored.ResetPrevColor)
 	return http.ListenAndServe(fmt.Sprintf(":%d", server.port), server.handler())
 }
 
 func (server *Server) Stop() {
-	stginLogger.Err("stopping server due to explicit stop call")
+	_ = stginLogger.Err("stopping server due to explicit stop call")
 	panic("stopping server due to explicit stop call")
 }
 
@@ -318,6 +335,13 @@ func NewServer(port int) *Server {
 		port:                   port,
 		notFoundAction:         notFoundDefaultAction,
 		methodNotAllowedAction: methodNotAllowedDefaultAction,
-		errorAction:            errorAction,
+		errorAction:            nil,
 	}
+}
+
+func DefaultServer(port int) *Server {
+	server := NewServer(port)
+	server.AddAPIListeners(WatchAPIs)
+	server.errorAction = errorAction
+	return server
 }

@@ -159,7 +159,3 @@ var myErrorHandler stgin.ErrorHandler = func(request RequestContext, err any) st
     }
 }
 ```
-
-# TODOs
-* Add most common statuses as predefined functions
-* Add support for cookies

@@ -24,6 +24,19 @@ type RequestContext struct {
 	MultipartForm func() *multipart.Form
 	Scheme        string
 	RemoteAddr    string
+	underlying    *http.Request
+}
+
+func (c RequestContext) Cookies() []*http.Cookie {
+	return c.underlying.Cookies()
+}
+
+func (c RequestContext) Cookie(name string) (*http.Cookie, error) {
+	return c.underlying.Cookie(name)
+}
+
+func (c RequestContext) AddCookie(cookie *http.Cookie) {
+	c.underlying.AddCookie(cookie)
 }
 
 func (c RequestContext) GetPathParam(name string) (string, bool) {

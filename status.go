@@ -6,12 +6,18 @@ import (
 
 type Status struct {
 	StatusCode int
-	Entity     any
+	Entity     ResponseEntity
 	Headers    http.Header
+	cookies    []*http.Cookie
 }
 
 func (status Status) isRedirection() bool {
 	return status.StatusCode >= 300 && status.StatusCode < 400
+}
+
+func (status Status) WithCookies(cookies ...*http.Cookie) Status {
+	status.cookies = append(status.cookies, cookies...)
+	return status
 }
 
 func (status Status) WithHeaders(headers http.Header) Status {
@@ -23,7 +29,7 @@ func (status Status) WithHeaders(headers http.Header) Status {
 
 var emptyHeaders http.Header = make(map[string][]string, 6)
 
-func CreateResponse(statusCode int, body any) Status {
+func CreateResponse(statusCode int, body ResponseEntity) Status {
 	return Status{
 		StatusCode: statusCode,
 		Entity:     body,
@@ -33,11 +39,11 @@ func CreateResponse(statusCode int, body any) Status {
 
 // 2xx Statuses here
 
-func Ok(body any) Status {
+func Ok(body ResponseEntity) Status {
 	return CreateResponse(http.StatusOK, body)
 }
 
-func Created(body any) Status {
+func Created(body ResponseEntity) Status {
 	return CreateResponse(http.StatusCreated, body)
 }
 
@@ -47,7 +53,7 @@ func Created(body any) Status {
 func MovedPermanently(location string) Status {
 	return Status{
 		StatusCode: http.StatusMovedPermanently,
-		Entity:     location,
+		Entity:     Text(location),
 		Headers:    emptyHeaders,
 	}
 }
@@ -55,7 +61,7 @@ func MovedPermanently(location string) Status {
 func Found(location string) Status {
 	return Status{
 		StatusCode: http.StatusFound,
-		Entity:     location,
+		Entity:     Text(location),
 		Headers:    emptyHeaders,
 	}
 }
@@ -63,7 +69,7 @@ func Found(location string) Status {
 func PermanentRedirect(location string) Status {
 	return Status{
 		StatusCode: http.StatusPermanentRedirect,
-		Entity:     location,
+		Entity:     Text(location),
 		Headers:    emptyHeaders,
 	}
 }
@@ -71,29 +77,29 @@ func PermanentRedirect(location string) Status {
 // ------------------
 // 4xx statuses here
 
-func BadRequest(body any) Status {
+func BadRequest(body ResponseEntity) Status {
 	return CreateResponse(http.StatusBadRequest, body)
 }
 
-func Unauthorized(body any) Status {
+func Unauthorized(body ResponseEntity) Status {
 	return CreateResponse(http.StatusUnauthorized, body)
 }
 
-func Forbidden(body any) Status {
+func Forbidden(body ResponseEntity) Status {
 	return CreateResponse(http.StatusForbidden, body)
 }
 
-func NotFound(body any) Status {
+func NotFound(body ResponseEntity) Status {
 	return CreateResponse(http.StatusNotFound, body)
 }
 
-func MethodNotAllowed(body any) Status {
+func MethodNotAllowed(body ResponseEntity) Status {
 	return CreateResponse(http.StatusMethodNotAllowed, body)
 }
 
 // ------------------
 // 5xx statuses here
 
-func InternalServerError(body any) Status {
+func InternalServerError(body ResponseEntity) Status {
 	return CreateResponse(http.StatusInternalServerError, body)
 }

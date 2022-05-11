@@ -103,12 +103,12 @@ func (controller *Controller) executeInternal(request *http.Request) Status {
 		}
 	}
 	if !done {
-		result = NotFound(&generalFailureMessage{
+		result = NotFound(Json(&generalFailureMessage{
 			StatusCode: 404,
 			Path:       request.URL.Path,
 			Message:    "not found",
 			Method:     request.Method,
-		})
+		}))
 	}
 
 	for _, modifier := range controller.responseListeners {
