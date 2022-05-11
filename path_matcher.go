@@ -49,7 +49,7 @@ func getMatcher(key, tpe string) *pathMatcher {
 	}
 }
 
-func matchAndExtractPathParams(pattern, uri string) ([]Param, bool) {
+func MatchAndExtractPathParams(pattern, uri string) ([]Param, bool) {
 	portions := strings.Split(pattern, "/")
 	rawPatternRegex := ""
 	for i, portion := range portions {

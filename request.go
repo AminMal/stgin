@@ -14,7 +14,7 @@ import (
 type RequestContext struct {
 	Url           string
 	QueryParams   map[string][]string
-	PathParams    map[string]string
+	PathParams    Params
 	Headers       http.Header
 	Body          *RequestBody
 	receivedAt    time.Time
@@ -29,10 +29,10 @@ type RequestContext struct {
 func (c RequestContext) GetPathParam(name string) (string, bool) {
 	var res string
 	var found bool
-	for paramName, value := range c.PathParams {
-		if paramName == name {
+	for _, param := range c.PathParams {
+		if param.key == name {
 			found = true
-			res = value
+			res = param.value
 			break
 		}
 	}
