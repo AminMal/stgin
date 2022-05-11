@@ -1,4 +1,4 @@
-#STGIN
+# STGIN
 
 STgin is a functional rest framework that provides easy APIs in order to maintain your application RESTful API server.
 

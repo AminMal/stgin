@@ -306,6 +306,7 @@ func (server *Server) handler() http.Handler {
 }
 
 func (server *Server) Start() error {
+	stginLogger.InfoF("starting server on port: %d", server.port)
 	return http.ListenAndServe(fmt.Sprintf(":%d", server.port), server.handler())
 }
 

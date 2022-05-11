@@ -33,7 +33,6 @@ func (controller *Controller) AddRoutes(routes ...Route) {
 		route.controller = controller
 		controller.routes = append(controller.routes, route)
 	}
-	controller.routes = append(controller.routes, routes...)
 }
 
 func (controller *Controller) AddRequestListeners(listeners ...RequestListener) {
