@@ -4,7 +4,6 @@ import (
 	"github.com/AminMal/slogger"
 	"regexp"
 	"runtime"
-	"strings"
 )
 
 var stginLogger slogger.Logger
@@ -29,7 +28,7 @@ func relevantCallers() []runtime.Frame {
 	var fs []runtime.Frame
 	for {
 		f, more := frames.Next()
-		if more && !strings.HasPrefix(f.Function, "github.com/AminMal/stgin") {
+		if more {
 			fs = append(fs, f)
 		} else {
 			break
