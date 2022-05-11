@@ -10,7 +10,6 @@ import (
 var stginLogger slogger.ConsoleLogger
 
 var contentTypeKey = "Content-Type"
-var applicationJsonType = "application/json"
 var multipleSlashesRegex *regexp.Regexp = regexp.MustCompile("(/{2,})")
 
 func init() {

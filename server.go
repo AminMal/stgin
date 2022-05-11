@@ -59,7 +59,6 @@ func write(status Status, rw http.ResponseWriter) {
 		_ = stginLogger.ErrorF("error while marshalling request entity:\n\t%v", fmt.Sprintf("%s%s%s", colored.RED, marshallErr.Error(), colored.ResetPrevColor))
 		panic(marshallErr)
 	}
-	rw.WriteHeader(status.StatusCode)
 	for key, values := range status.Headers {
 		for _, value := range values {
 			rw.Header().Set(key, value)
@@ -69,6 +68,7 @@ func write(status Status, rw http.ResponseWriter) {
 		http.SetCookie(rw, cookie)
 	}
 	rw.Header().Set(contentTypeKey, contentType)
+	rw.WriteHeader(status.StatusCode)
 	_, err := rw.Write(bytes)
 	if err != nil {
 		stginLogger.ErrorF("error while writing response to client:\n\t%s", fmt.Sprintf("%s%s%s", colored.RED, err.Error(), colored.ResetPrevColor))
@@ -278,8 +278,8 @@ func (sh serverHandler) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 			statusCode = 404
 			contentType = applicationJson
 		}
-		writer.WriteHeader(statusCode)
 		writer.Header().Set(contentTypeKey, contentType)
+		writer.WriteHeader(statusCode)
 		writer.Write(bodyBtes)
 	}
 }
