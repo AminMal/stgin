@@ -11,11 +11,10 @@ var stginLogger slogger.ConsoleLogger
 
 var contentTypeKey = "Content-Type"
 var applicationJsonType = "application/json"
-var multipleSlashesRegex *regexp.Regexp
+var multipleSlashesRegex *regexp.Regexp = regexp.MustCompile("(/{2,})")
 
 func init() {
 	stginLogger = slogger.NewConsoleLogger("STGIN")
-	multipleSlashesRegex = regexp.MustCompile("(/{2,})")
 }
 
 func normalizePath(path string) string {
