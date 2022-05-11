@@ -8,7 +8,7 @@ import (
 )
 
 var ping Route = GET("/ping", func(_ RequestContext) Status {
-	return Ok(&msg{Message: "PONG!"})
+	return Ok(Json(&msg{Message: "PONG!"}))
 })
 
 func TestNewController(t *testing.T) {
@@ -46,9 +46,9 @@ func TestControllerListeners(t *testing.T) {
 
 	uri, _ := url.Parse("/test/ping")
 	rawRequest := http.Request{
-		Method:           "GET",
-		URL:              uri,
-		RequestURI:       "/test/ping",
+		Method:     "GET",
+		URL:        uri,
+		RequestURI: "/test/ping",
 	}
 	res := controller.executeInternal(&rawRequest)
 	if res.StatusCode != 201 {
@@ -69,9 +69,9 @@ func BenchmarkPing(b *testing.B) {
 	controller.AddRoutes(ping)
 	uri, _ := url.Parse("/ping")
 	req := http.Request{
-		Method:           "GET",
-		URL:              uri,
-		RequestURI:       "/ping",
+		Method:     "GET",
+		URL:        uri,
+		RequestURI: "/ping",
 	}
 	for i := 0; i < b.N; i++ {
 		controller.executeInternal(&req)
