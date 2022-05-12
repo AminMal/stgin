@@ -53,7 +53,7 @@ func (c RequestContext) GetPathParam(name string) (string, bool) {
 }
 
 func (c RequestContext) MustGetPathParam(name string) string {
-	value, found := c.GetQuery(name)
+	value, found := c.GetPathParam(name)
 	if !found {
 		panic(fmt.Sprintf("used MustGetPathParam while path parameter %s does not exist", name))
 	}
