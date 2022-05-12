@@ -2,16 +2,18 @@ package stgin
 
 import (
 	"net/http"
+	"regexp"
 	"strings"
 )
 
 type API = func(c RequestContext) Status
 
 type Route struct {
-	Path       string
-	Method     string
-	Action     API
-	controller *Controller
+	Path               string
+	Method             string
+	Action             API
+	correspondingRegex *regexp.Regexp
+	controller         *Controller
 }
 
 func (route Route) withPrefixPrepended(controllerPrefix string) Route {
@@ -21,9 +23,17 @@ func (route Route) withPrefixPrepended(controllerPrefix string) Route {
 
 func (route Route) acceptsAndPathParams(request *http.Request) (ok bool, params Params) {
 	if request.Method == route.Method {
-		params, ok = MatchAndExtractPathParams(route.Path, request.URL.Path)
+		params, ok = MatchAndExtractPathParams(&route, request.URL.Path)
 	}
 	return
+}
+
+func getRoutePatternRegexOrPanic(pattern string) *regexp.Regexp {
+	regex, err := getPatternCorrespondingRegex(pattern)
+	if err != nil {
+		panic(err)
+	}
+	return regex
 }
 
 func GET(path string, api API) Route {
@@ -70,6 +80,14 @@ func OPTIONS(path string, api API) Route {
 	return Route{
 		Path:   normalizePath(path),
 		Method: "OPTIONS",
+		Action: api,
+	}
+}
+
+func Handle(method string, path string, api API) Route {
+	return Route{
+		Path:   normalizePath(path),
+		Method: method,
 		Action: api,
 	}
 }

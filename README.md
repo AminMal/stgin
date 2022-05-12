@@ -22,37 +22,45 @@ health := stgin.POST("/health", func(request stgin.RequestContext) stgin.Status 
     // do something with reqBody
     var response HealthCheckResponse = GetHealth()
     if response.DBConnection {
-        return stgin.Ok(&response) 
+        return stgin.Ok(stgin.Json(&response)) 
     } else {
-        return stgin.InternalServerError(&response)
+        return stgin.InternalServerError(stgin.Json(&response))
     }
 })
 ```
-***go-gin implementation:***
+***common framework implementation:***
 ```go
-r.POST("/health", func(c *gin.Context) {
+r.POST("/health", func(c *framework.Context) {
     var reqBody HealthCheckRequest
     bodyBytes, err := ioutil.ReadAll(c.Request.Body)
-	// potential error handling
+    if err != nil {
+        // potential error handling
+    }
     err = json.Unmarshal(bodyBytes, &reqBody)
-	// potential error handling
+    if err != nil {
+        // potential error handling
+    }
 	// do something with reqBody
     var response HealthCheckResponse = GetHealth()
     jsonResponse, _ := json.Marshal(response)
     if response.DBConnection {
-    	c.Status(200)
     	_, writeError := c.Writer.Write(jsonResponse)
-    	// potential error handling
+        c.Status(200)
+        if writeError != nil {
+            // potential error handling
+        }
     } else {
     	c.Status(500)
     	_, writeError = c.Writer.Write(jsonResponse)
-    	// potential error handling
+        if writeError != nil {
+            // potential error handling
+        }
     }
 })
 ```
-Or just easily add headers with a receiver function instead of manually writing headers:
+Or just easily add headers or cookies with a receiver function instead of manually writing:
 ```go
-stgin.Ok(&body).WithHeaders(...)
+stgin.Ok(...).WithHeaders(...).WithCookies
 ```
 
 ## Structure
@@ -62,10 +70,10 @@ The structure of STgin types and interfaces is pretty simple, a `Server` may hav
     
     -Server =>
         -Controller 1 ->
-            -Route 1
-            -Route 2
+            -Route 1 (path pattern, method, api)
+            -Route 2 (path pattern, method, api)
         -Cotroller 2 ->
-            -Route 1
+            -Route 1 (path pattern, method, api)
 ```
 **Server:** Is run on the specified port, contains the controllers.
 
@@ -159,3 +167,9 @@ var myErrorHandler stgin.ErrorHandler = func(request RequestContext, err any) st
     }
 }
 ```
+
+# Todos
+* Add static file support
+* Add Quick start, installation in readme
+* Add html template integrations
+* http 2 server push

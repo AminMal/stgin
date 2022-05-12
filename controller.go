@@ -34,7 +34,9 @@ func (controller *Controller) SetRoutePrefix(prefix string) {
 
 func (controller *Controller) AddRoutes(routes ...Route) {
 	for _, route := range routes {
+		path := normalizePath(controller.prefix + route.Path)
 		route.controller = controller
+		route.correspondingRegex = getRoutePatternRegexOrPanic(path)
 		controller.routes = append(controller.routes, route)
 	}
 }

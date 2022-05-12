@@ -51,8 +51,9 @@ func TestControllerListeners(t *testing.T) {
 		RequestURI: "/test/ping",
 	}
 	res := controller.executeInternal(&rawRequest)
+	fmt.Println(res)
 	if res.StatusCode != 201 {
-		t.Error("response listener could not mutate api response")
+		t.Fatalf("response listener could not mutate api response")
 	}
 	expectedLog := fmt.Sprintf("request with path %v completed with status %d", "/test/ping", 201)
 	if apiLogToTerminalString != expectedLog {
