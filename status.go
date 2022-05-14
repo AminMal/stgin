@@ -11,6 +11,7 @@ type Status struct {
 	Entity     ResponseEntity
 	Headers    http.Header
 	cookies    []*http.Cookie
+	isDir      bool
 }
 
 func (status Status) isRedirection() bool {
@@ -123,4 +124,11 @@ func File(path string) Status {
 	}
 }
 
-// todo, add support for directories
+func Dir(fs string) Status {
+	dir := dirPlaceholder{path: fs}
+	return Status{
+		StatusCode: 0,
+		Entity:     dir,
+		isDir:      true,
+	}
+}

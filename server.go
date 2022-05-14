@@ -138,6 +138,12 @@ func translate(
 			apiListener(rc, result)
 		}
 
+		if result.isDir {
+			dir, _ := result.Entity.(dirPlaceholder)
+			http.FileServer(http.Dir(dir.path)).ServeHTTP(writer, request)
+			return
+		}
+
 		if result.isRedirection() {
 			location, _ := result.Entity.Bytes()
 			http.Redirect(writer, request, string(location), result.StatusCode)

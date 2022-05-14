@@ -68,6 +68,15 @@ func DELETE(path string, api API) Route {
 	}
 }
 
+func Prefix(path string) string {
+	endsWithSlash := endsWithSlashRegex.MatchString(path)
+	if endsWithSlash {
+		return path + ".*"
+	} else {
+		return path + "/" + ".*"
+	}
+}
+
 func PATCH(path string, api API) Route {
 	return Route{
 		Path:   path,

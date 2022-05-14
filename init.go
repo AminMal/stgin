@@ -11,6 +11,7 @@ var stginLogger slogger.ConsoleLogger
 
 var contentTypeKey = "Content-Type"
 var multipleSlashesRegex *regexp.Regexp = regexp.MustCompile("(/{2,})")
+var endsWithSlashRegex = regexp.MustCompile(".*/$")
 
 func init() {
 	stginLogger = slogger.NewConsoleLogger("STGIN")

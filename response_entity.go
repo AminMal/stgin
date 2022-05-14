@@ -112,6 +112,18 @@ func (f fileContent) Bytes() ([]byte, error) {
 	return os.ReadFile(f.path)
 }
 
+type dirPlaceholder struct {
+	path string
+}
+
+func (d dirPlaceholder) ContentType() string {
+	return "text/html" // will be overriden by http handler func by default
+}
+
+func (d dirPlaceholder) Bytes() ([]byte, error) {
+	return []byte{}, nil // will be handled by go http handler func
+}
+
 func Json(a any) ResponseEntity {
 	return jsonEntity{obj: a}
 }
