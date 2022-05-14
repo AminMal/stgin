@@ -83,6 +83,7 @@ func translate(
 	apiListeners []APIListener,
 	recovery ErrorHandler,
 	pathParams Params,
+	routePath string,
 ) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		queries := make(map[string][]string, 10)
@@ -140,7 +141,8 @@ func translate(
 
 		if result.isDir {
 			dir, _ := result.Entity.(dirPlaceholder)
-			http.FileServer(http.Dir(dir.path)).ServeHTTP(writer, request)
+			fs := http.FileServer(http.Dir(dir.path))
+			http.Handle(routePath, fs)
 			return
 		}
 
@@ -246,6 +248,7 @@ func (sh serverHandler) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 					apiListeners,
 					sh.server.errorAction,
 					pathParams,
+					route.Path,
 				)
 				handlerFunc(writer, request)
 				done = true
