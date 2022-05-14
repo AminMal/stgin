@@ -303,8 +303,8 @@ func (server *Server) handler() http.Handler {
 	methodWithRoutes := make(map[string][]Route)
 	for _, controller := range server.Controllers {
 		for _, route := range controller.routes {
+			var log string
 			if !route.isStaticDir() {
-				var log string
 				var r Route
 				r = route.withPrefixPrepended(controller.prefix)
 				methodWithRoutes[route.Method] = append(methodWithRoutes[route.Method], r)
@@ -313,11 +313,16 @@ func (server *Server) handler() http.Handler {
 					colored.CYAN, r.Method, colored.ResetPrevColor,
 					colored.CYAN, r.Path, colored.ResetPrevColor,
 				)
-
-				_ = stginLogger.Info(log)
 			} else {
-				mux.Handle(route.withPrefixPrepended(controller.prefix).Path, http.FileServer(http.Dir(route.dir)))
+				routePath := route.withPrefixPrepended(controller.prefix).Path
+				dir := route.dir
+				log = fmt.Sprintf("Binding route :\t%s%s%s\t\tto serve static directory -> %s%s%s",
+					colored.CYAN, routePath, colored.ResetPrevColor,
+					colored.GREEN, dir, colored.ResetPrevColor,
+				)
+				mux.Handle(routePath, http.FileServer(http.Dir(dir)))
 			}
+			_ = stginLogger.Info(log)
 		}
 	}
 	mux.Handle("/", http.StripPrefix("", serverHandler{methodWithRoutes: methodWithRoutes, server: server}))
