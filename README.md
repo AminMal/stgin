@@ -2,6 +2,94 @@
 
 STgin is a functional rest framework that provides easy APIs in order to maintain your application RESTful API server.
 
+# Installation
+You can use the following command to add stgin in your application.
+```
+go get github.com/AminMal/stgin
+```
+
+# Quick Start
+STgin concentrates a lot about making a well-structured application.
+Let's take a look at the following application structure, this is just a part of a simple application (health checking part).
+```
+  /project
+    ... other packages you might need (i.e., users, authentication, inventory, ...)
+    /health
+      init.go
+      models.go
+      apis.go
+      ... other things you might need
+    init.go
+    main.go
+```
+Let's start defining health APIs:
+```go
+// /health/apis.go file
+
+package health
+
+import "github.com/AminMal/stgin"
+// #recommended
+var getHealthAPI stgin.API = func(request stgin.RequestContext) stgin.Status {
+	healthResponse := getHealth() // some method implemented in package
+    // model is defined earlier in models.go
+    if healthResponse.ok {
+        return stgin.Ok(stgin.Json(&healthResponse))
+    } else {
+        return stgin.InternalServerError(stgin.Json(&healthResponse))
+    }
+}
+
+// you can also use func getHealthAPI(...) ... #recommended
+// or inline the implementation in route definition #not recommended
+
+```
+Fine for now, now let's create the controller in `/health/init.go`. It's better to use init to initialize controllers and apis.
+```go
+// health/init.go file
+
+package health
+
+import "github.com/AminMal/stgin"
+
+var Controller *stgin.Controller // exposed to main package
+
+func init() {
+    Controller = stgin.NewController("HealthController")
+    Controller.SetRoutePrefix("/health")
+    Controller.AddRoutes(
+      stgin.GET("/status", getHealthAPI), // defined in apis.go
+      // this route will be interpreted to /health/status
+    )
+}
+```
+So the health APIs are implemented, let's integrate them into the server.
+Now in the root directory of the project, let's open `init.go` file.
+```go
+package main
+
+import "github.com/AminMal/stgin"
+
+var server *stgin.Server
+
+func init() {
+	portNo := 9000 // read from config or just bind manually
+	server = stgin.DefaultServer(portNo) // default server has default logger and error handler
+	server.Register(health.Controller)
+}
+```
+Almost done, let's just run the server (main.go).
+```go
+package main
+
+import "log"
+
+func main() {
+	log.Fatal(server.Start()) // all done
+}
+```
+Your application will be up and running.
+
 A comparison between STgin and go-gin, writing a simple API:
 ```go
 // Given response type as
@@ -81,9 +169,10 @@ The structure of STgin types and interfaces is pretty simple, a `Server` may hav
 
 **Route:** Holds route specifications (i.e., method, path, API action)
 
-**RequestContext**: Holds the information about the requests, such as uri, body, headers, ...
+**RequestContext**: Holds the information about the requests, such as uri, body, headers, ... . Can parse request entity into the desired variable, using helper functions like `request.JSONInto`, `request.XMLInto`.
 
 **Status:** Is a wrapper around an actual http response, holds status code, response headers, response body, ... (i.e., Ok, BadRequest, ...)
+* ResponseEntity: A response could be of different content types (i.e., JSON, XML, Text, file, ...). A response entity is an interface which defined the content type of the response, and entity bytes. There are some helper functions provided in stgin to ease the use of these entities, like `stgin.Json`, `stgin.Text`, `stgin.Xml`, `stgin.File`.
 
 **API:** Is a type alias for a function which accepts a request context and returns a status.
 
@@ -168,12 +257,34 @@ var myErrorHandler stgin.ErrorHandler = func(request RequestContext, err any) st
 }
 ```
 
-# Files
-Working with files is easy in stgin. you can simply use `stgin.File`, and everything is all set.
-It returns `404 not found` if the file does not exist, or `500 internal server error` in case of problems reading the file.
+# Files And Directories
+**Files:** 
+
+Working with files and directories is pretty easy. 
+They are dealt just as normal response entities. They have a content type depending on the file format, and file bytes.
+So you can return them inside your APIs, just give stgin the file location. If the file could not be found, `404 not found` is returned to the client as the response, and if there was some problems reading the file, `500 internal server error` would be returned.
+
+**Directories:**
+
+Directories are a bit out of RESTful APIs concept, so It's not possible in stgin to return them as a http response.
+Instead of defining routes for the file system, a special Routing function is available as `StaticDir`:
+```go
+SomeController.AddRoutes(...) // some routes
+SomeController.AddRoutes(
+    stgin.GET("/some/pattern", someAPI),
+    stgin.StaticDir("/get_my_files", "/tmp"),
+    // serves /tmp folder on "</controller_prefix_if_exists>/get_my_files"
+)
+```
+# Http 2 Push
+Http push is available if you're using go 1.18 above, and using http 2 as a communication protocol.
+```go
+// inside api definiction
+if request.Push.IsSupported {
+	pusher := request.Push.Pusher
+	// do stuff with pusher
+}
+```
 
 # Todos
-* Add static file support
-* Add Quick start, installation in readme
 * Add html template integrations
-* http 2 server push
