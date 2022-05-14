@@ -320,7 +320,7 @@ func (server *Server) handler() http.Handler {
 			}
 		}
 	}
-	mux.Handle("/", http.StripPrefix("/", serverHandler{methodWithRoutes: methodWithRoutes, server: server}))
+	mux.Handle("/", http.StripPrefix("", serverHandler{methodWithRoutes: methodWithRoutes, server: server}))
 	return mux
 }
 
