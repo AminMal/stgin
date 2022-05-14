@@ -320,7 +320,7 @@ func (server *Server) handler() http.Handler {
 					colored.CYAN, routePath, colored.ResetPrevColor,
 					colored.GREEN, dir, colored.ResetPrevColor,
 				)
-				mux.Handle(routePath, http.FileServer(http.Dir(dir)))
+				mux.Handle(routePath, http.StripPrefix(routePath, http.FileServer(http.Dir(dir))))
 			}
 			_ = stginLogger.Info(log)
 		}
