@@ -17,7 +17,7 @@ type Route struct {
 }
 
 func (route Route) withPrefixPrepended(controllerPrefix string) Route {
-	route.Path = controllerPrefix + route.Path
+	route.Path = normalizePath(controllerPrefix + route.Path)
 	return route
 }
 
@@ -38,7 +38,7 @@ func getRoutePatternRegexOrPanic(pattern string) *regexp.Regexp {
 
 func GET(path string, api API) Route {
 	return Route{
-		Path:   normalizePath(path),
+		Path:   path,
 		Method: "GET",
 		Action: api,
 	}
@@ -46,7 +46,7 @@ func GET(path string, api API) Route {
 
 func PUT(path string, api API) Route {
 	return Route{
-		Path:   normalizePath(path),
+		Path:   path,
 		Method: "PUT",
 		Action: api,
 	}
@@ -54,7 +54,7 @@ func PUT(path string, api API) Route {
 
 func POST(path string, api API) Route {
 	return Route{
-		Path:   normalizePath(path),
+		Path:   path,
 		Method: "POST",
 		Action: api,
 	}
@@ -62,7 +62,7 @@ func POST(path string, api API) Route {
 
 func DELETE(path string, api API) Route {
 	return Route{
-		Path:   normalizePath(path),
+		Path:   path,
 		Method: "DELETE",
 		Action: api,
 	}
@@ -70,7 +70,7 @@ func DELETE(path string, api API) Route {
 
 func PATCH(path string, api API) Route {
 	return Route{
-		Path:   normalizePath(path),
+		Path:   path,
 		Method: "PATCH",
 		Action: api,
 	}
@@ -78,7 +78,7 @@ func PATCH(path string, api API) Route {
 
 func OPTIONS(path string, api API) Route {
 	return Route{
-		Path:   normalizePath(path),
+		Path:   path,
 		Method: "OPTIONS",
 		Action: api,
 	}
@@ -86,7 +86,7 @@ func OPTIONS(path string, api API) Route {
 
 func Handle(method string, path string, api API) Route {
 	return Route{
-		Path:   normalizePath(path),
+		Path:   path,
 		Method: method,
 		Action: api,
 	}
@@ -117,47 +117,47 @@ func (stage RouteCreationStage) Do(api API) Route {
 func OnGET(path string) RouteCreationStage {
 	return RouteCreationStage{
 		method: "GET",
-		path:   normalizePath(path),
+		path:   path,
 	}
 }
 
 func OnPUT(path string) RouteCreationStage {
 	return RouteCreationStage{
 		method: "PUT",
-		path:   normalizePath(path),
+		path:   path,
 	}
 }
 
 func OnPOST(path string) RouteCreationStage {
 	return RouteCreationStage{
 		method: "POST",
-		path:   normalizePath(path),
+		path:   path,
 	}
 }
 
 func OnDelete(path string) RouteCreationStage {
 	return RouteCreationStage{
 		method: "DELETE",
-		path:   normalizePath(path),
+		path:   path,
 	}
 }
 
 func OnPatch(path string) RouteCreationStage {
 	return RouteCreationStage{
 		method: "PATCH",
-		path:   normalizePath(path),
+		path:   path,
 	}
 }
 
 func OnOptions(path string) RouteCreationStage {
 	return RouteCreationStage{
 		method: "OPTIONS",
-		path:   normalizePath(path),
+		path:   path,
 	}
 }
 
 func OnPath(path string) RouteCreationStage {
-	return RouteCreationStage{path: normalizePath(path)}
+	return RouteCreationStage{path: path}
 }
 
 func (stage RouteCreationStage) WithMethod(method string) RouteCreationStage {

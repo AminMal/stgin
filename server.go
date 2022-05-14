@@ -93,6 +93,7 @@ func translate(
 		url := request.URL.Path
 		headers := request.Header
 		body, _ := bodyFromReadCloser(request.Body)
+		pusher, isSupported := writer.(http.Pusher)
 		rc := RequestContext{
 			Url:           url,
 			QueryParams:   queries,
@@ -108,6 +109,10 @@ func translate(
 			},
 			Scheme:     request.URL.Scheme,
 			RemoteAddr: request.RemoteAddr,
+			HttpPush: Push{
+				IsSupported: isSupported,
+				pusher:      pusher,
+			},
 		}
 
 		for _, requestListener := range requestListeners {
@@ -290,13 +295,9 @@ func (server *Server) handler() http.Handler {
 		for _, route := range controller.routes {
 			var log string
 			var r Route
-			if controller.hasPrefix() {
-				r = route.withPrefixPrepended(controller.prefix)
-			} else {
-				r = route
-			}
+			r = route.withPrefixPrepended(controller.prefix)
 			methodWithRoutes[route.Method] = append(methodWithRoutes[route.Method], r)
-			log = fmt.Sprintf("Adding %v's API:\t%s%v%s -> %s%v%s",
+			log = fmt.Sprintf("Adding %v's API:\t%s%v%s\t\t-> %s%v%s",
 				route.controller.Name,
 				colored.CYAN, r.Method, colored.ResetPrevColor,
 				colored.CYAN, r.Path, colored.ResetPrevColor,

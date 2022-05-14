@@ -1,7 +1,9 @@
 package stgin
 
 import (
+	"github.com/AminMal/slogger/colored"
 	"net/http"
+	"strings"
 )
 
 type Status struct {
@@ -103,3 +105,22 @@ func MethodNotAllowed(body ResponseEntity) Status {
 func InternalServerError(body ResponseEntity) Status {
 	return CreateResponse(http.StatusInternalServerError, body)
 }
+
+//------------------
+
+func File(path string) Status {
+	file := fileContent{path}
+	_, err := file.Bytes()
+	if err != nil {
+		_ = stginLogger.Colored(colored.RED).ErrorF("error reading file '%s': %s", file.path, err.Error())
+		if strings.Contains(err.Error(), "no such file or directory") {
+			return NotFound(Text("404 not found"))
+		} else {
+			return InternalServerError(Text("internal server error"))
+		}
+	} else {
+		return Ok(file)
+	}
+}
+
+// todo, add support for directories

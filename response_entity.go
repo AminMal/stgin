@@ -3,6 +3,10 @@ package stgin
 import (
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
+	"os"
+	"regexp"
+	"strings"
 )
 
 const (
@@ -10,6 +14,8 @@ const (
 	applicationXml  = "application/xml"
 	plainText       = "text/plain"
 )
+
+var getFileFormatRegex = regexp.MustCompile(".*\\.(.+)")
 
 type ResponseEntity interface {
 	ContentType() string
@@ -56,6 +62,54 @@ func (t textEntity) ContentType() string {
 
 func (t textEntity) Bytes() ([]byte, error) {
 	return []byte(t.obj), nil
+}
+
+type fileContent struct {
+	path string
+}
+
+func (f fileContent) ContentType() string {
+	isValidPath := getFileFormatRegex.MatchString(f.path)
+	if !isValidPath {
+		panic(fmt.Sprintf("not a valid filepath: '%s'", f.path))
+	}
+	fileType := getFileFormatRegex.FindStringSubmatch(f.path)[1]
+	switch strings.ToLower(fileType) {
+	case "html":
+		return "text/html"
+	case "htm":
+		return "text/html"
+	case "jpeg":
+		return "image/jpeg"
+	case "jpg":
+		return "image/jpeg"
+	case "pdf":
+		return "application/pdf"
+	case "png":
+		return "image/png"
+	case "rar":
+		return "application/vnd.rar"
+	case "mp3":
+		return "audio/mpeg"
+	case "mp4":
+		return "video/mp4"
+	case "mpeg":
+		return "video/mpeg"
+	case "ppt":
+		return "application/vnd.ms-powerpoint"
+	case "svg":
+		return "image/svg+xml"
+	case "wav":
+		return "audio/wav"
+	case "txt":
+		return "text/plain"
+	default:
+		return "text/plain"
+	}
+}
+
+func (f fileContent) Bytes() ([]byte, error) {
+	return os.ReadFile(f.path)
 }
 
 func Json(a any) ResponseEntity {

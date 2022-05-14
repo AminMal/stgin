@@ -25,6 +25,19 @@ type RequestContext struct {
 	Scheme        string
 	RemoteAddr    string
 	underlying    *http.Request
+	HttpPush      Push
+}
+
+type Push struct {
+	IsSupported bool
+	pusher      http.Pusher
+}
+
+func (p Push) Pusher() http.Pusher {
+	if !p.IsSupported {
+		panic("pusher is not supported in the request")
+	}
+	return p.pusher
 }
 
 func (c RequestContext) Cookies() []*http.Cookie {

@@ -168,6 +168,10 @@ var myErrorHandler stgin.ErrorHandler = func(request RequestContext, err any) st
 }
 ```
 
+# Files
+Working with files is easy in stgin. you can simply use `stgin.File`, and everything is all set.
+It returns `404 not found` if the file does not exist, or `500 internal server error` in case of problems reading the file.
+
 # Todos
 * Add static file support
 * Add Quick start, installation in readme

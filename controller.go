@@ -24,7 +24,6 @@ func NewController(name string) *Controller {
 }
 
 func (controller *Controller) SetRoutePrefix(prefix string) {
-	prefix = normalizePath(prefix)
 	if strings.HasPrefix(prefix, "/") {
 		controller.prefix = prefix
 	} else {
@@ -89,11 +88,7 @@ func (controller *Controller) executeInternal(request *http.Request) Status {
 	var result Status
 	for _, route := range controller.routes {
 		var r Route
-		if controller.hasPrefix() {
-			r = route.withPrefixPrepended(controller.prefix)
-		} else {
-			r = route
-		}
+		r = route.withPrefixPrepended(controller.prefix)
 		matches, pathParams := r.acceptsAndPathParams(request)
 		if !matches {
 			continue
