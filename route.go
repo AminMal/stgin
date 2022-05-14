@@ -14,7 +14,10 @@ type Route struct {
 	Action             API
 	correspondingRegex *regexp.Regexp
 	controller         *Controller
+	dir                string
 }
+
+func (route Route) isStaticDir() bool { return route.dir != "" }
 
 func (route Route) withPrefixPrepended(controllerPrefix string) Route {
 	route.Path = normalizePath(controllerPrefix + route.Path)
@@ -90,6 +93,14 @@ func OPTIONS(path string, api API) Route {
 		Path:   path,
 		Method: "OPTIONS",
 		Action: api,
+	}
+}
+
+func StaticDir(pattern string, dir string) Route {
+	return Route{
+		Path:   pattern,
+		Method: "GET",
+		dir:    dir,
 	}
 }
 

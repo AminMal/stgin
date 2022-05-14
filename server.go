@@ -299,23 +299,29 @@ func (sh serverHandler) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 }
 
 func (server *Server) handler() http.Handler {
+	mux := http.NewServeMux()
 	methodWithRoutes := make(map[string][]Route)
 	for _, controller := range server.Controllers {
 		for _, route := range controller.routes {
-			var log string
-			var r Route
-			r = route.withPrefixPrepended(controller.prefix)
-			methodWithRoutes[route.Method] = append(methodWithRoutes[route.Method], r)
-			log = fmt.Sprintf("Adding %v's API:\t%s%v%s\t\t-> %s%v%s",
-				route.controller.Name,
-				colored.CYAN, r.Method, colored.ResetPrevColor,
-				colored.CYAN, r.Path, colored.ResetPrevColor,
-			)
+			if !route.isStaticDir() {
+				var log string
+				var r Route
+				r = route.withPrefixPrepended(controller.prefix)
+				methodWithRoutes[route.Method] = append(methodWithRoutes[route.Method], r)
+				log = fmt.Sprintf("Adding %v's API:\t%s%v%s\t\t-> %s%v%s",
+					route.controller.Name,
+					colored.CYAN, r.Method, colored.ResetPrevColor,
+					colored.CYAN, r.Path, colored.ResetPrevColor,
+				)
 
-			_ = stginLogger.Info(log)
+				_ = stginLogger.Info(log)
+			} else {
+				mux.Handle(route.withPrefixPrepended(controller.prefix).Path, http.FileServer(http.Dir(route.dir)))
+			}
 		}
 	}
-	return serverHandler{methodWithRoutes: methodWithRoutes, server: server}
+	mux.Handle("/", http.StripPrefix("/", serverHandler{methodWithRoutes: methodWithRoutes, server: server}))
+	return mux
 }
 
 func (server *Server) Start() error {
