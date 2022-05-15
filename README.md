@@ -286,7 +286,22 @@ if request.Push.IsSupported {
 }
 ```
 
-# v0.5
-Added support for html templates (In progress)
+# Html Templates
+STgin does not support "rendering" html templates (parsing and creating appropriate sources for images, etc. developers should take care of images),
+but loading html templates using variables is supported.
 
-# Todos
+* **Template variables:** To define template variables, wrap the variable name inside double curly braces. (i.e., {{ title }}, {{name}}, spaces are ignored).
+
+```go
+//    /
+//    /templates
+//      welcome.html
+//      /images
+stgin.GET("/welcome", func (request stgin.RequestContext) stgin.Status {
+    return stgin.Ok(template.LoadTemplate("./templates/welcome.html", template.Variables{
+        "title": "Welcome to the team",
+        "name": "John Doe",
+}))
+})
+```
+WIP
