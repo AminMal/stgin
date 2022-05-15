@@ -286,5 +286,7 @@ if request.Push.IsSupported {
 }
 ```
 
+# v0.5
+Added support for html templates (In progress)
+
 # Todos
-* Add html template integrations
