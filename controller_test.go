@@ -15,7 +15,7 @@ func TestNewController(t *testing.T) {
 	controller := NewController("TestSuite")
 	controller.SetRoutePrefix("test")
 
-	if controller.Name != "TestSuite" || !controller.hasPrefix() || controller.prefix != "/test" {
+	if controller.Name != "TestSuite" || controller.prefix != "/test" {
 		t.Error("controller configuration mismatch")
 	}
 }

@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/AminMal/slogger/colored"
-	"mime/multipart"
 	"net/http"
 	"path"
 	"time"
 )
+
+var defaultController *Controller = NewController("Default")
 
 type Server struct {
 	port                   int
@@ -17,12 +18,20 @@ type Server struct {
 	responseListeners      []ResponseListener
 	apiListeners           []APIListener
 	notFoundAction         API
-	methodNotAllowedAction API
 	errorAction            ErrorHandler
 }
 
 func (server *Server) Register(controllers ...*Controller) {
 	server.Controllers = append(server.Controllers, controllers...)
+}
+
+func (server *Server) AddRoutes(routes ...Route) {
+	for _, c := range server.Controllers {
+		if c == defaultController {
+			c.AddRoutes(routes...)
+			break
+		}
+	}
 }
 
 func (server *Server) AddRequestListeners(listeners ...RequestListener) {
@@ -41,39 +50,12 @@ func (server *Server) NotFoundAction(action API) {
 	server.notFoundAction = action
 }
 
-func (server *Server) MethodNowAllowedAction(action API) {
-	server.methodNotAllowedAction = action
-}
-
 func (server *Server) SetErrorHandler(action ErrorHandler) {
 	server.errorAction = action
 }
 
 type msg struct {
 	Message string `json:"message"`
-}
-
-func write(status Status, rw http.ResponseWriter) {
-	bytes, contentType, marshallErr := marshall(status.Entity)
-	if marshallErr != nil {
-		_ = stginLogger.ErrorF("error while marshalling request entity:\n\t%v", fmt.Sprintf("%s%s%s", colored.RED, marshallErr.Error(), colored.ResetPrevColor))
-		panic(marshallErr)
-	}
-	for key, values := range status.Headers {
-		for _, value := range values {
-			rw.Header().Set(key, value)
-		}
-	}
-	for _, cookie := range status.cookies {
-		http.SetCookie(rw, cookie)
-	}
-	rw.Header().Set(contentTypeKey, contentType)
-	rw.WriteHeader(status.StatusCode)
-	_, err := rw.Write(bytes)
-	if err != nil {
-		stginLogger.ErrorF("error while writing response to client:\n\t%s", fmt.Sprintf("%s%s%s", colored.RED, err.Error(), colored.ResetPrevColor))
-		panic(err)
-	}
 }
 
 func translate(
@@ -83,7 +65,6 @@ func translate(
 	apiListeners []APIListener,
 	recovery ErrorHandler,
 	pathParams Params,
-	routePath string,
 ) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		queries := make(map[string][]string, 10)
@@ -91,30 +72,7 @@ func translate(
 			queries[key] = value
 		}
 
-		url := request.URL.Path
-		headers := request.Header
-		body, _ := bodyFromReadCloser(request.Body)
-		pusher, isSupported := writer.(http.Pusher)
-		rc := RequestContext{
-			Url:           url,
-			QueryParams:   queries,
-			PathParams:    pathParams,
-			Headers:       headers,
-			Body:          body,
-			receivedAt:    time.Now(),
-			Method:        request.Method,
-			ContentLength: request.ContentLength,
-			Host:          request.Host,
-			MultipartForm: func() *multipart.Form {
-				return request.MultipartForm
-			},
-			Scheme:     request.URL.Scheme,
-			RemoteAddr: request.RemoteAddr,
-			HttpPush: Push{
-				IsSupported: isSupported,
-				pusher:      pusher,
-			},
-		}
+		rc := requestContextFromHttpRequest(request, writer, pathParams)
 
 		for _, requestListener := range requestListeners {
 			rc = requestListener(rc)
@@ -139,19 +97,7 @@ func translate(
 			apiListener(rc, result)
 		}
 
-		if result.isDir {
-			dir, _ := result.Entity.(dirPlaceholder)
-			fs := http.FileServer(http.Dir(dir.path))
-			http.Handle(routePath, fs)
-			return
-		}
-
-		if result.isRedirection() {
-			location, _ := result.Entity.Bytes()
-			http.Redirect(writer, request, string(location), result.StatusCode)
-			return
-		}
-		write(result, writer)
+		result.complete(request, writer)
 	}
 }
 
@@ -172,7 +118,7 @@ var WatchAPIs APIListener = func(request RequestContext, status Status) {
 	now := time.Now()
 	difference := fmt.Sprint(now.Sub(request.receivedAt))
 	statusString := fmt.Sprintf("%v%d%v", getColor(status.StatusCode), status.StatusCode, colored.ResetPrevColor)
-	_ = stginLogger.InfoF("%v -> %v | %v | %v", request.Method, request.Url, statusString, difference)
+	_ = stginLogger.InfoF("%v -> %v\t\t| %v | %v", request.Method, request.Url, statusString, difference)
 }
 
 type generalFailureMessage struct {
@@ -187,15 +133,6 @@ var notFoundDefaultAction API = func(request RequestContext) Status {
 		StatusCode: 404,
 		Path:       request.Url,
 		Message:    "route not found",
-		Method:     request.Method,
-	}))
-}
-
-var methodNotAllowedDefaultAction API = func(request RequestContext) Status {
-	return MethodNotAllowed(Json(&generalFailureMessage{
-		StatusCode: http.StatusMethodNotAllowed,
-		Path:       request.Url,
-		Message:    "method " + request.Method + " not allowed!",
 		Method:     request.Method,
 	}))
 }
@@ -223,14 +160,14 @@ var errorAction ErrorHandler = func(request RequestContext, err any) Status {
 	}))
 }
 
-type serverHandler struct {
+type apiHandler struct {
 	methodWithRoutes map[string][]Route // to optimize request matching time
 	server           *Server
 }
 
-func (sh serverHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+func (handler apiHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	var done bool
-	for method, routes := range sh.methodWithRoutes {
+	for method, routes := range handler.methodWithRoutes {
 		if method != request.Method {
 			continue
 		}
@@ -238,17 +175,16 @@ func (sh serverHandler) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 		for _, route := range routes {
 			accepts, pathParams := route.acceptsAndPathParams(request)
 			if accepts {
-				requestListeners := append(sh.server.requestListeners, route.controller.requestListeners...)
-				responseListeners := append(sh.server.responseListeners, route.controller.responseListeners...)
-				apiListeners := append(sh.server.apiListeners, route.controller.apiListeners...)
+				requestListeners := append(handler.server.requestListeners, route.controller.requestListeners...)
+				responseListeners := append(handler.server.responseListeners, route.controller.responseListeners...)
+				apiListeners := append(handler.server.apiListeners, route.controller.apiListeners...)
 				handlerFunc := translate(
 					route.Action,
 					requestListeners,
 					responseListeners,
 					apiListeners,
-					sh.server.errorAction,
+					handler.server.errorAction,
 					pathParams,
-					route.Path,
 				)
 				handlerFunc(writer, request)
 				done = true
@@ -256,46 +192,45 @@ func (sh serverHandler) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 			}
 		}
 	}
+	// no route matches the request
 	if !done {
-		body, _ := bodyFromReadCloser(request.Body)
-		status := sh.server.notFoundAction(
-			RequestContext{
-				Url:           request.URL.Path,
-				QueryParams:   request.URL.Query(),
-				PathParams:    nil,
-				Headers:       request.Header,
-				Body:          body,
-				receivedAt:    time.Now(),
-				Method:        request.Method,
-				ContentLength: request.ContentLength,
-				Host:          request.Host,
-				MultipartForm: func() *multipart.Form {
-					return request.MultipartForm
-				},
-				Scheme:     request.URL.Scheme,
-				RemoteAddr: request.RemoteAddr,
-			},
-		)
+		rc := requestContextFromHttpRequest(request, writer, nil)
+		status := handler.server.notFoundAction(rc)
 		statusCode := status.StatusCode
-		bodyBtes, contentType, marshalErr := marshall(status.Entity)
+		bodyBytes, contentType, marshalErr := marshall(status.Entity)
 		if marshalErr != nil {
 			_ = stginLogger.ErrorF(
 				"could not marshal not found action result:\n\t%v%v%v",
 				colored.RED, fmt.Sprint(marshalErr), colored.ResetPrevColor,
 			)
-			bodyBtes, _ = json.Marshal(&generalFailureMessage{
-				StatusCode: 404,
+			bodyBytes, _ = json.Marshal(&generalFailureMessage{
+				StatusCode: http.StatusNotFound,
 				Path:       request.URL.Path,
 				Message:    "route not found",
 				Method:     request.Method,
 			})
-			statusCode = 404
+			statusCode = http.StatusNotFound
 			contentType = applicationJson
 		}
 		writer.Header().Set(contentTypeKey, contentType)
 		writer.WriteHeader(statusCode)
-		writer.Write(bodyBtes)
+		writer.Write(bodyBytes)
 	}
+}
+
+func routeAppendLog(controllerName, method, path string) string {
+	return fmt.Sprintf("Adding %v's API:\t%s%v%s\t\t-> %s%v%s",
+		controllerName,
+		colored.CYAN, method, colored.ResetPrevColor,
+		colored.CYAN, path, colored.ResetPrevColor,
+	)
+}
+
+func bindStaticDirLog(routePath string, dir string) string {
+	return fmt.Sprintf("Binding route :\t%s%s%s\t\tto serve static directory -> %s%s%s",
+		colored.CYAN, routePath, colored.ResetPrevColor,
+		colored.GREEN, dir, colored.ResetPrevColor,
+	)
 }
 
 func (server *Server) handler() http.Handler {
@@ -305,27 +240,19 @@ func (server *Server) handler() http.Handler {
 		for _, route := range controller.routes {
 			var log string
 			if !route.isStaticDir() {
-				var r Route
-				r = route.withPrefixPrepended(controller.prefix)
-				methodWithRoutes[route.Method] = append(methodWithRoutes[route.Method], r)
-				log = fmt.Sprintf("Adding %v's API:\t%s%v%s\t\t-> %s%v%s",
-					route.controller.Name,
-					colored.CYAN, r.Method, colored.ResetPrevColor,
-					colored.CYAN, r.Path, colored.ResetPrevColor,
-				)
+				route = route.withPrefixPrepended(controller.prefix)
+				methodWithRoutes[route.Method] = append(methodWithRoutes[route.Method], route)
+				log = routeAppendLog(controller.Name, route.Method, route.Path)
 			} else {
 				routePath := route.withPrefixPrepended(controller.prefix).Path
 				dir := route.dir
-				log = fmt.Sprintf("Binding route :\t%s%s%s\t\tto serve static directory -> %s%s%s",
-					colored.CYAN, routePath, colored.ResetPrevColor,
-					colored.GREEN, dir, colored.ResetPrevColor,
-				)
+				log = bindStaticDirLog(routePath, dir)
 				mux.Handle(routePath, http.StripPrefix(routePath, http.FileServer(http.Dir(dir))))
 			}
 			_ = stginLogger.Info(log)
 		}
 	}
-	mux.Handle("/", http.StripPrefix("", serverHandler{methodWithRoutes: methodWithRoutes, server: server}))
+	mux.Handle("/", http.StripPrefix("", apiHandler{methodWithRoutes: methodWithRoutes, server: server}))
 	return mux
 }
 
@@ -334,17 +261,12 @@ func (server *Server) Start() error {
 	return http.ListenAndServe(fmt.Sprintf(":%d", server.port), server.handler())
 }
 
-func (server *Server) Stop() {
-	_ = stginLogger.Err("stopping server due to explicit stop call")
-	panic("stopping server due to explicit stop call")
-}
-
 func NewServer(port int) *Server {
 	return &Server{
 		port:                   port,
 		notFoundAction:         notFoundDefaultAction,
-		methodNotAllowedAction: methodNotAllowedDefaultAction,
 		errorAction:            nil,
+		Controllers: 			[]*Controller{defaultController},
 	}
 }
 

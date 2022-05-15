@@ -98,7 +98,7 @@ func OPTIONS(path string, api API) Route {
 
 func StaticDir(pattern string, dir string) Route {
 	return Route{
-		Path:   pattern,
+		Path:   normalizePath("/" + pattern + "/"),
 		Method: "GET",
 		dir:    dir,
 	}

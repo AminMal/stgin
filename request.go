@@ -130,6 +130,32 @@ func bodyFromReadCloser(reader io.ReadCloser) (*RequestBody, error) {
 	}
 }
 
+func requestContextFromHttpRequest(request *http.Request, writer http.ResponseWriter, pathParams Params) RequestContext {
+	body, _ := bodyFromReadCloser(request.Body)
+	pusher, isSupported := writer.(http.Pusher)
+	return RequestContext{
+		Url:           request.URL.Path,
+		QueryParams:   request.URL.Query(),
+		PathParams:    pathParams,
+		Headers:       request.Header,
+		Body:          body,
+		receivedAt:    time.Now(),
+		Method:        request.Method,
+		ContentLength: request.ContentLength,
+		Host:          request.Host,
+		MultipartForm: func() *multipart.Form {
+			return request.MultipartForm
+		},
+		Scheme:        request.URL.Scheme,
+		RemoteAddr:    request.RemoteAddr,
+		underlying:    request,
+		HttpPush:      Push{
+			IsSupported: isSupported,
+			pusher: pusher,
+		},
+	}
+}
+
 func (body *RequestBody) fillAndGetBytes() ([]byte, *MalformedRequestContext) {
 	if body.hasFilledBytes {
 		return body.underlyingBytes, nil

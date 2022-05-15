@@ -52,10 +52,6 @@ func (controller *Controller) AddAPIListeners(listeners ...APIListener) {
 	controller.apiListeners = append(controller.apiListeners, listeners...)
 }
 
-func (controller *Controller) hasPrefix() bool {
-	return controller.prefix != ""
-}
-
 func (controller *Controller) executeInternal(request *http.Request) Status {
 	body := RequestBody{
 		underlying:      nil,

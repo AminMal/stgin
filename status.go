@@ -1,6 +1,7 @@
 package stgin
 
 import (
+	"fmt"
 	"github.com/AminMal/slogger/colored"
 	"net/http"
 	"strings"
@@ -30,13 +31,43 @@ func (status Status) WithHeaders(headers http.Header) Status {
 	return status
 }
 
-var emptyHeaders http.Header = make(map[string][]string, 6)
+func write(status Status, rw http.ResponseWriter) {
+	bytes, contentType, marshallErr := marshall(status.Entity)
+	if marshallErr != nil {
+		_ = stginLogger.ErrorF("error while marshalling request entity:\n\t%v", fmt.Sprintf("%s%s%s", colored.RED, marshallErr.Error(), colored.ResetPrevColor))
+		panic(marshallErr)
+	}
+	for key, values := range status.Headers {
+		for _, value := range values {
+			rw.Header().Set(key, value)
+		}
+	}
+	for _, cookie := range status.cookies {
+		http.SetCookie(rw, cookie)
+	}
+	rw.Header().Set(contentTypeKey, contentType)
+	rw.WriteHeader(status.StatusCode)
+	_, err := rw.Write(bytes)
+	if err != nil {
+		stginLogger.ErrorF("error while writing response to client:\n\t%s", fmt.Sprintf("%s%s%s", colored.RED, err.Error(), colored.ResetPrevColor))
+		panic(err)
+	}
+}
+
+func (status Status) complete(request *http.Request, writer http.ResponseWriter) {
+	if status.isRedirection() {
+		location, _ := status.Entity.Bytes()
+		http.Redirect(writer, request, string(location), status.StatusCode)
+		return
+	} else {
+		write(status, writer)
+	}
+}
 
 func CreateResponse(statusCode int, body ResponseEntity) Status {
 	return Status{
 		StatusCode: statusCode,
 		Entity:     body,
-		Headers:    emptyHeaders,
 	}
 }
 
@@ -57,7 +88,6 @@ func MovedPermanently(location string) Status {
 	return Status{
 		StatusCode: http.StatusMovedPermanently,
 		Entity:     Text(location),
-		Headers:    emptyHeaders,
 	}
 }
 
@@ -65,7 +95,6 @@ func Found(location string) Status {
 	return Status{
 		StatusCode: http.StatusFound,
 		Entity:     Text(location),
-		Headers:    emptyHeaders,
 	}
 }
 
@@ -73,7 +102,6 @@ func PermanentRedirect(location string) Status {
 	return Status{
 		StatusCode: http.StatusPermanentRedirect,
 		Entity:     Text(location),
-		Headers:    emptyHeaders,
 	}
 }
 
