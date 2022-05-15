@@ -31,11 +31,9 @@ func loadTemplateRaw(path string) (lines []string, err error) {
 	return
 }
 
-func loadTemplate(path string, variables Variables) ([]string, error) {
-	rawLines, err := loadTemplateRaw(path)
-	if err != nil {
-		return []string{}, err
-	}
+// just for the sake of testing :)
+
+func loadTemplateContents(rawLines []string, variables Variables) []string {
 	var result []string
 	for _, line := range rawLines {
 		for _, variable := range templateVariableDefinitionRegex.FindAllStringSubmatch(line, -1) {
@@ -48,7 +46,15 @@ func loadTemplate(path string, variables Variables) ([]string, error) {
 		}
 		result = append(result, line)
 	}
-	return result, nil
+	return result
+}
+
+func loadTemplate(path string, variables Variables) ([]string, error) {
+	rawLines, err := loadTemplateRaw(path)
+	if err != nil {
+		return []string{}, err
+	}
+	return loadTemplateContents(rawLines, variables), nil
 }
 
 func LoadTemplate(path string, variables Variables) stgin.ResponseEntity {
