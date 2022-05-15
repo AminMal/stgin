@@ -12,9 +12,7 @@ var ping Route = GET("/ping", func(_ RequestContext) Status {
 })
 
 func TestNewController(t *testing.T) {
-	controller := NewController("TestSuite")
-	controller.SetRoutePrefix("test")
-
+	controller := NewController("TestSuite", "test")
 	if controller.Name != "TestSuite" || controller.prefix != "/test" {
 		t.Error("controller configuration mismatch")
 	}
@@ -37,8 +35,7 @@ func TestControllerListeners(t *testing.T) {
 		dummyQuery, _ = request.GetQuery("dummy")
 	}
 
-	controller := NewController("TestSuite")
-	controller.SetRoutePrefix("test")
+	controller := NewController("TestSuite", "/test")
 	controller.AddRoutes(ping)
 	controller.AddRequestListeners(addDummyQuery)
 	controller.AddResponseListener(statusIncrementor)
@@ -51,7 +48,6 @@ func TestControllerListeners(t *testing.T) {
 		RequestURI: "/test/ping",
 	}
 	res := controller.executeInternal(&rawRequest)
-	fmt.Println(res)
 	if res.StatusCode != 201 {
 		t.Fatalf("response listener could not mutate api response")
 	}
@@ -70,7 +66,7 @@ func TestControllerListeners(t *testing.T) {
 }
 
 func BenchmarkPing(b *testing.B) {
-	controller := NewController("Test")
+	controller := NewController("Test", "")
 	controller.AddRoutes(ping)
 	uri, _ := url.Parse("/ping")
 	req := http.Request{
