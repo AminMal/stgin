@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-var defaultController *Controller = NewController("Default")
+var defaultController *Controller = NewController("Default", "")
 
 type Server struct {
 	port                   int

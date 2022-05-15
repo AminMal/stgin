@@ -1,10 +1,8 @@
 package stgin
 
 import (
-	"fmt"
 	"mime/multipart"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -17,17 +15,10 @@ type Controller struct {
 	apiListeners      []APIListener
 }
 
-func NewController(name string) *Controller {
+func NewController(name string, prefix string) *Controller {
 	return &Controller{
 		Name: name,
-	}
-}
-
-func (controller *Controller) SetRoutePrefix(prefix string) {
-	if strings.HasPrefix(prefix, "/") {
-		controller.prefix = prefix
-	} else {
-		controller.prefix = fmt.Sprintf("%v%v", "/", prefix)
+		prefix: normalizePath("/" + prefix),
 	}
 }
 
@@ -59,11 +50,18 @@ func (controller *Controller) executeInternal(request *http.Request) Status {
 		hasFilledBytes:  false,
 	}
 
+	var headers http.Header
+	if request.Header == nil {
+		headers = emptyHeaders
+	} else {
+		headers = request.Header
+	}
+
 	rc := RequestContext{
 		Url:           request.URL.Path,
 		QueryParams:   request.URL.Query(),
 		PathParams:    nil,
-		Headers:       request.Header,
+		Headers:       headers,
 		Body:          &body,
 		receivedAt:    time.Now(),
 		Method:        request.Method,
@@ -83,9 +81,7 @@ func (controller *Controller) executeInternal(request *http.Request) Status {
 	var done bool
 	var result Status
 	for _, route := range controller.routes {
-		var r Route
-		r = route.withPrefixPrepended(controller.prefix)
-		matches, pathParams := r.acceptsAndPathParams(request)
+		matches, pathParams := route.withPrefixPrepended(controller.prefix).acceptsAndPathParams(request)
 		if !matches {
 			continue
 		} else {

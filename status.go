@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+var emptyHeaders http.Header = make(map[string][]string, 5)
+
 type Status struct {
 	StatusCode int
 	Entity     ResponseEntity
@@ -68,6 +70,7 @@ func CreateResponse(statusCode int, body ResponseEntity) Status {
 	return Status{
 		StatusCode: statusCode,
 		Entity:     body,
+		Headers: emptyHeaders,
 	}
 }
 
@@ -155,7 +158,7 @@ func File(path string) Status {
 func Dir(fs string) Status {
 	dir := dirPlaceholder{path: fs}
 	return Status{
-		StatusCode: 0,
+		StatusCode: 200,
 		Entity:     dir,
 		isDir:      true,
 	}

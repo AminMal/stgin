@@ -92,6 +92,12 @@ func (c RequestContext) GetQuery(name string) (string, bool) {
 	}
 }
 
+func (c RequestContext) MustGetQuery(name string) string {
+	query, found := c.GetQuery(name)
+	if !found { panic(fmt.Sprintf("used MustGetQuery while query parameter %s does not exist, or has more than one values", name)) }
+	return query
+}
+
 type RequestBody struct {
 	underlying      io.Reader
 	underlyingBytes []byte
@@ -131,13 +137,24 @@ func bodyFromReadCloser(reader io.ReadCloser) (*RequestBody, error) {
 }
 
 func requestContextFromHttpRequest(request *http.Request, writer http.ResponseWriter, pathParams Params) RequestContext {
-	body, _ := bodyFromReadCloser(request.Body)
+	var body *RequestBody
+	if request.Body != nil {
+		body, _ = bodyFromReadCloser(request.Body)
+	} else {
+		body = nil
+	}
 	pusher, isSupported := writer.(http.Pusher)
+	var headers http.Header
+	if request.Header == nil {
+		headers = emptyHeaders
+	} else {
+		headers = request.Header
+	}
 	return RequestContext{
 		Url:           request.URL.Path,
 		QueryParams:   request.URL.Query(),
 		PathParams:    pathParams,
-		Headers:       request.Header,
+		Headers:       headers,
 		Body:          body,
 		receivedAt:    time.Now(),
 		Method:        request.Method,
