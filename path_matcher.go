@@ -9,11 +9,15 @@ import (
 )
 
 const (
-	intRegex          = "[0-9]+"
-	floatRegex        = "[+\\-]?(?:(?:0|[1-9]\\d*)(?:\\.\\d*)?|\\.\\d+)(?:\\d[eE][+\\-]?\\d+)?"
-	stringRegex       = "[a-zA-Z0-9_-]+"
+	intRegexStr       = "[0-9]+"
+	floatRegexStr     = "[+\\-]?(?:(?:0|[1-9]\\d*)(?:\\.\\d*)?|\\.\\d+)(?:\\d[eE][+\\-]?\\d+)?"
+	stringRegexStr    = "[a-zA-Z0-9_-]+"
 	expectQueryParams = "(\\?.*)?"
 )
+
+var intRegex = regexp.MustCompile(intRegexStr)
+var floatRegex = regexp.MustCompile(floatRegexStr)
+var stringRegex = regexp.MustCompile(stringRegexStr)
 
 var getPathParamSpecificationRegex = regexp.MustCompile("^(\\$[a-zA-Z0-9_-]+(:[a-z]{1,6})?)$")
 
@@ -40,11 +44,11 @@ func getMatcher(key, tpe string) *pathMatcher {
 	var correspondingRegex string
 	switch tpe {
 	case "int":
-		correspondingRegex = fmt.Sprintf("(?P<%s>%s)", key, intRegex)
+		correspondingRegex = fmt.Sprintf("(?P<%s>%s)", key, intRegexStr)
 	case "float":
-		correspondingRegex = fmt.Sprintf("(?P<%s>%s)", key, floatRegex)
+		correspondingRegex = fmt.Sprintf("(?P<%s>%s)", key, floatRegexStr)
 	default:
-		correspondingRegex = fmt.Sprintf("(?P<%s>%s)", key, stringRegex)
+		correspondingRegex = fmt.Sprintf("(?P<%s>%s)", key, stringRegexStr)
 	}
 	return &pathMatcher{
 		key:                key,

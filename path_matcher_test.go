@@ -6,20 +6,20 @@ import (
 )
 
 func TestMatchAndExtractPathParams(t *testing.T) {
-	pattern := "/users/$username:string/purchases/$id:int"
-	regex, compileErr := getPatternCorrespondingRegex(pattern)
+	pattern := "/users/$username:string/purchases/$id:int?age"
+	dummyRoute := GET(pattern, nil)
+	regex, compileErr := getPatternCorrespondingRegex(dummyRoute.Path)
 	if compileErr != nil {
 		t.Errorf("could not compile '%s' as a valid uri pattern", normalizePath(pattern))
 	}
-	dummyRoute := Route{Path: pattern, correspondingRegex: regex}
-	uri := "/users/John/purchases/675?q=search"
+	dummyRoute.correspondingRegex = regex
+	uri := "/users/John/purchases/675?age=23"
 	params, matches := MatchAndExtractPathParams(&dummyRoute, uri)
-	var expected Params
-	expected = append(expected, Param{"username", "John"})
-	expected = append(expected, Param{"id", "675"})
-	var expectedSlice []Param = expected
-	var resultSlice []Param = params
-	if !matches || !reflect.DeepEqual(expectedSlice, resultSlice) {
+	expected := Params{
+		{"username", "John"},
+		{"id", "675"},
+	}
+	if !matches || !reflect.DeepEqual(expected, params) {
 		t.Error("path params do not follow the expected pattern")
 	}
 }

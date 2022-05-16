@@ -3,9 +3,60 @@ package stgin
 import (
 	"errors"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+type queries = map[string]string
+
+func getQueryMatcher(tpe string) *regexp.Regexp {
+	switch tpe {
+	case "int":
+		return intRegex
+	case "float":
+		return floatRegex
+	default:
+		return stringRegex
+	}
+}
+
+func acceptsQuery(q queries, key string, value string) bool {
+	tpe := q[key]
+	if tpe == "" { return true } else {
+		return getQueryMatcher(tpe).Match([]byte(value))
+	}
+}
+
+func acceptsAllQueries(q queries, qs map[string][]string) bool {
+	var accepts = true
+	for name, values := range qs {
+		for _, v := range values {
+			if !acceptsQuery(q, name, v) {
+				accepts = false
+				break
+			}
+		}
+	}
+	return accepts
+}
+
+func getQueryDefinitionsFromPattern(pattern string) queries {
+	defs := strings.SplitN(pattern, "&", -1)
+	qs := make(queries, 10)
+	for _, def := range defs {
+		if def != "" {
+			arr := strings.SplitN(def, ":", 2)
+			name := arr[0]
+			var tpe = "string"
+			if len(arr) == 2 {
+				tpe = arr[1]
+			}
+			qs[name] = tpe
+		}
+	}
+	return qs
+}
 
 func (c RequestContext) QueryToObj(a any) error {
 	if reflect.TypeOf(a).Kind() != reflect.Ptr {

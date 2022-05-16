@@ -185,7 +185,7 @@ func (handler apiHandler) ServeHTTP(writer http.ResponseWriter, request *http.Re
 		// method matches
 		for _, route := range routes {
 			accepts, pathParams := route.acceptsAndPathParams(request)
-			if accepts {
+			if accepts && acceptsAllQueries(route.expectedQueries, request.URL.Query()) {
 				requestListeners := append(handler.server.requestListeners, route.controller.requestListeners...)
 				responseListeners := append(handler.server.responseListeners, route.controller.responseListeners...)
 				apiListeners := append(handler.server.apiListeners, route.controller.apiListeners...)
