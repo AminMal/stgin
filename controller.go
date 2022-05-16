@@ -82,9 +82,7 @@ func (controller *Controller) executeInternal(request *http.Request) Status {
 	var result Status
 	for _, route := range controller.routes {
 		matches, pathParams := route.withPrefixPrepended(controller.prefix).acceptsAndPathParams(request)
-		if !matches {
-			continue
-		} else {
+		if matches && acceptsAllQueries(route.expectedQueries, request.URL.Query()) {
 			rc.PathParams = pathParams
 			done = true
 			result = route.Action(rc)

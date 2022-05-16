@@ -15,6 +15,7 @@ type Route struct {
 	correspondingRegex *regexp.Regexp
 	controller         *Controller
 	dir                string
+	expectedQueries    queries
 }
 
 func (route Route) isStaticDir() bool { return route.dir != "" }
@@ -24,11 +25,14 @@ func (route Route) withPrefixPrepended(controllerPrefix string) Route {
 	return route
 }
 
-func (route Route) acceptsAndPathParams(request *http.Request) (ok bool, params Params) {
+func (route Route) acceptsAndPathParams(request *http.Request) (bool, Params) {
+	var ok bool
+	var params Params
 	if request.Method == route.Method {
 		params, ok = MatchAndExtractPathParams(&route, request.URL.Path)
 	}
-	return
+
+	return ok, params
 }
 
 func getRoutePatternRegexOrPanic(pattern string) *regexp.Regexp {
@@ -39,61 +43,42 @@ func getRoutePatternRegexOrPanic(pattern string) *regexp.Regexp {
 	return regex
 }
 
-func GET(path string, api API) Route {
-	return Route{
-		Path:   path,
-		Method: "GET",
+func mkRoute(pattern string, api API, method string) Route {
+	path, queryDefs := splitBy(pattern, "?")
+	return Route {
+		Path: path,
+		Method: method,
 		Action: api,
+		expectedQueries: getQueryDefinitionsFromPattern(queryDefs),
 	}
 }
 
-func PUT(path string, api API) Route {
-	return Route{
-		Path:   path,
-		Method: "PUT",
-		Action: api,
-	}
+func GET(pattern string, api API) Route {
+	return mkRoute(pattern, api, "GET")
 }
 
-func POST(path string, api API) Route {
-	return Route{
-		Path:   path,
-		Method: "POST",
-		Action: api,
-	}
+func PUT(pattern string, api API) Route {
+	return mkRoute(pattern, api, "PUT")
 }
 
-func DELETE(path string, api API) Route {
-	return Route{
-		Path:   path,
-		Method: "DELETE",
-		Action: api,
-	}
+func POST(pattern string, api API) Route {
+	return mkRoute(pattern, api, "POST")
+}
+
+func DELETE(pattern string, api API) Route {
+	return mkRoute(pattern, api, "DELETE")
 }
 
 func Prefix(path string) string {
-	endsWithSlash := endsWithSlashRegex.MatchString(path)
-	if endsWithSlash {
-		return path + ".*"
-	} else {
-		return path + "/" + ".*"
-	}
+	return normalizePath("/" + path + "/.*")
 }
 
-func PATCH(path string, api API) Route {
-	return Route{
-		Path:   path,
-		Method: "PATCH",
-		Action: api,
-	}
+func PATCH(pattern string, api API) Route {
+	return mkRoute(pattern, api, "PATCH")
 }
 
-func OPTIONS(path string, api API) Route {
-	return Route{
-		Path:   path,
-		Method: "OPTIONS",
-		Action: api,
-	}
+func OPTIONS(pattern string, api API) Route {
+	return mkRoute(pattern, api, "OPTIONS")
 }
 
 func StaticDir(pattern string, dir string) Route {
@@ -104,12 +89,8 @@ func StaticDir(pattern string, dir string) Route {
 	}
 }
 
-func Handle(method string, path string, api API) Route {
-	return Route{
-		Path:   path,
-		Method: method,
-		Action: api,
-	}
+func Handle(method string, pattern string, api API) Route {
+	return mkRoute(pattern, api, method)
 }
 
 type RouteCreationStage struct {
