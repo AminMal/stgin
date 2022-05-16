@@ -28,6 +28,16 @@ func marshall(re ResponseEntity) (bytes []byte, contentType string, err error) {
 	return
 }
 
+type emptyEntity struct {}
+
+func (e emptyEntity) ContentType() string {
+	return plainText
+}
+
+func (e emptyEntity) Bytes() ([]byte, error) {
+	return []byte{}, nil
+}
+
 type jsonEntity struct {
 	obj any
 }
@@ -135,3 +145,5 @@ func Xml(a any) ResponseEntity {
 func Text(text string) ResponseEntity {
 	return textEntity{obj: text}
 }
+
+func Empty() ResponseEntity { return emptyEntity{} }

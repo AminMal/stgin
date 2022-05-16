@@ -34,6 +34,17 @@ func (server *Server) AddRoutes(routes ...Route) {
 	}
 }
 
+func (server *Server) CorsHandler(handler CorsHandler) {
+	server.AddRoutes(OPTIONS(Prefix(""), func(RequestContext) Status {
+		return Ok(Empty()).WithHeaders(http.Header{
+			"Access-Control-Allow-Origin": handler.AllowOrigin,
+			"Access-Control-Allow-Credentials": handler.AllowCredentials,
+			"Access-Control-Allow-Headers": handler.AllowHeaders,
+			"Access-Control-Allow-Methods": handler.AllowMethods,
+		})
+	}))
+}
+
 func (server *Server) AddRequestListeners(listeners ...RequestListener) {
 	server.requestListeners = append(server.requestListeners, listeners...)
 }
