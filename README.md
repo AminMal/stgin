@@ -196,6 +196,23 @@ The structure of STgin types and interfaces is pretty simple, a `Server` may hav
     // or if you're sure about the existence, 
     username := request.MustGetPathParam("username")
     ```
+  
+# Query Parameters
+* How to define?
+
+  When defining a route, you can specify which query params of what type the route should expect. If a request could not satisfy the expected queries, it will be rejected by the route and will be passed into the next route and so on.
+  Specifying query parameters does not mean that the route would not accept other query parameters which are not specified.
+  By specifying the query parameters, you just make sure that when a request is accepted by the route, it always contains those query parameters with the right type.
+  After defining the path pattern, use a question mark `?` to start defining query parameters, write the name of the parameter (if it has a certain type, use `:` and put the type name, i.e., int, string, float),
+  and when done, put `&` to define the next query parameter. The order of queries does not matter.
+  ```go
+    stgin.GET("/users?username&id:int")
+    // Just like path parameters, if you do not specify the type of query, it's assumed to be string, 
+    // so "username" here is interpreted into "username:string" 
+   ```
+  As mentioned earlier, this pattern will match urls like `/users?id=7&username=JohnDoe&otherquery=whatever&anotherone=true`. 
+  And you can access those easily in the request, so no worries about not specifying all the query parameters.
+  
     
 ## Custom Actions
 STgin does not provide actions about stuff like Authentication, because simple authentication is not useful most of the time, and you may need customized authentications.
