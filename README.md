@@ -213,6 +213,23 @@ The structure of STgin types and interfaces is pretty simple, a `Server` may hav
   As mentioned earlier, this pattern will match urls like `/users?id=7&username=JohnDoe&otherquery=whatever&anotherone=true`. 
   And you can access those easily in the request, so no worries about not specifying all the query parameters.
   
+
+* Query to object
+
+  There is a special method in request context, which can convert queries into a struct object.
+  There are some few notes to take before using this. When defining the expected struct that the queries will be converted into,
+  if you need to use other naming in queries than the field in struct, use `qp` (short for query parameter) tag to specify the name (just like json tag):
+  ```go
+    type UserSearchFilter struct {
+        Username   string  `qp:"name"`
+        Id         int     `qp:"id"`
+        Joined     string  
+    }
+  ```
+  * **Always pass pointers to the function**
+  * **Non-exported fields will not be parsed from request query parameters**
+  * **If you do not pass the name to qp tag, parser would look up for the actual field name in the queries:**
+    Notice the `Joined` field in the struct, parser looks for `&Joined=...` in the url.
     
 ## Custom Actions
 STgin does not provide actions about stuff like Authentication, because simple authentication is not useful most of the time, and you may need customized authentications.
