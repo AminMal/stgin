@@ -103,12 +103,14 @@ func translate(
 		for _, responseListener := range responseListeners {
 			result = responseListener(result)
 		}
+		now := time.Now()
+		result.doneAt = now
+
+		result.complete(request, writer)
 
 		for _, apiListener := range apiListeners {
 			apiListener(rc, result)
 		}
-
-		result.complete(request, writer)
 	}
 }
 
@@ -126,8 +128,7 @@ func getColor(status int) colored.Color {
 }
 
 var WatchAPIs APIListener = func(request RequestContext, status Status) {
-	now := time.Now()
-	difference := fmt.Sprint(now.Sub(request.receivedAt))
+	difference := fmt.Sprint(status.doneAt.Sub(request.receivedAt))
 	statusString := fmt.Sprintf("%v%d%v", getColor(status.StatusCode), status.StatusCode, colored.ResetPrevColor)
 	_ = stginLogger.InfoF("%v -> %v\t\t| %v | %v", request.Method, request.Url, statusString, difference)
 }

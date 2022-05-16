@@ -5,6 +5,7 @@ import (
 	"github.com/AminMal/slogger/colored"
 	"net/http"
 	"strings"
+	"time"
 )
 
 var emptyHeaders http.Header = make(map[string][]string, 5)
@@ -15,6 +16,7 @@ type Status struct {
 	Headers    http.Header
 	cookies    []*http.Cookie
 	isDir      bool
+	doneAt     time.Time
 }
 
 func (status Status) isRedirection() bool {
