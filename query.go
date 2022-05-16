@@ -21,18 +21,20 @@ func getQueryMatcher(tpe string) *regexp.Regexp {
 	}
 }
 
-func acceptsQuery(q queries, key string, value string) bool {
-	tpe := q[key]
-	if tpe == "" { return true } else {
+func acceptsQuery(tpe string, value string) bool {
+	if tpe == "" {
+		return true
+	} else {
 		return getQueryMatcher(tpe).Match([]byte(value))
 	}
 }
 
 func acceptsAllQueries(q queries, qs map[string][]string) bool {
 	var accepts = true
-	for name, values := range qs {
-		for _, v := range values {
-			if !acceptsQuery(q, name, v) {
+	for name, tpe := range q {
+		value := qs[name]
+		for _, v := range value {
+			if !acceptsQuery(tpe, v) {
 				accepts = false
 				break
 			}
@@ -84,15 +86,15 @@ func (c RequestContext) QueryToObj(a any) error {
 				case reflect.String:
 					valueField.Set(reflect.ValueOf(query))
 				case reflect.Int:
-					if queryInt, err := strconv.Atoi(query); err != nil {
+					if queryInt, err := strconv.Atoi(query); err == nil {
 						valueField.Set(reflect.ValueOf(queryInt))
 					}
 				case reflect.Float64:
-					if queryFloat, err := strconv.ParseFloat(query, 64); err != nil {
+					if queryFloat, err := strconv.ParseFloat(query, 64); err == nil {
 						valueField.Set(reflect.ValueOf(queryFloat))
 					}
 				case reflect.Float32:
-					if queryFloat, err := strconv.ParseFloat(query, 32); err != nil {
+					if queryFloat, err := strconv.ParseFloat(query, 32); err == nil {
 						valueField.Set(reflect.ValueOf(queryFloat))
 					}
 				}
