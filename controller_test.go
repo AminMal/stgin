@@ -7,6 +7,10 @@ import (
 	"testing"
 )
 
+type msg struct {
+	Message string `json:"message"`
+}
+
 var ping Route = GET("/ping", func(_ RequestContext) Status {
 	return Ok(Json(&msg{Message: "PONG!"}))
 })

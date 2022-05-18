@@ -16,8 +16,8 @@ func TestMatchAndExtractPathParams(t *testing.T) {
 	uri := "/users/John/purchases/675?age=23"
 	params, matches := MatchAndExtractPathParams(&dummyRoute, uri)
 	expected := Params{
-		{"username", "John"},
-		{"id", "675"},
+		"username": "John",
+		"id":       "675",
 	}
 	if !matches || !reflect.DeepEqual(expected, params) {
 		t.Error("path params do not follow the expected pattern")

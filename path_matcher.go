@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"unicode/utf8"
 )
 
 const (
 	intRegexStr       = "[0-9]+"
 	floatRegexStr     = "[+\\-]?(?:(?:0|[1-9]\\d*)(?:\\.\\d*)?|\\.\\d+)(?:\\d[eE][+\\-]?\\d+)?"
-	stringRegexStr    = "[a-zA-Z0-9_-]+"
+	stringRegexStr    = "[a-zA-Z0-9_!@#$%^&*()+=-]+"
 	expectQueryParams = "(\\?.*)?"
 )
 
@@ -21,11 +20,6 @@ var stringRegex = regexp.MustCompile(stringRegexStr)
 
 var getPathParamSpecificationRegex = regexp.MustCompile("^(\\$[a-zA-Z0-9_-]+(:[a-z]{1,6})?)$")
 
-func trimFirstRune(s string) string {
-	_, i := utf8.DecodeRuneInString(s)
-	return s[i:]
-}
-
 type pathMatcher struct {
 	key                string
 	tpe                string
@@ -33,12 +27,7 @@ type pathMatcher struct {
 	rawRegex           string
 }
 
-type Params = []Param
-
-type Param struct {
-	key   string
-	value string
-}
+type Params = map[string]string
 
 func getMatcher(key, tpe string) *pathMatcher {
 	var correspondingRegex string
@@ -90,19 +79,16 @@ func getPatternCorrespondingRegex(pattern string) (*regexp.Regexp, error) {
 	}
 }
 
-func MatchAndExtractPathParams(route *Route, uri string) ([]Param, bool) {
+func MatchAndExtractPathParams(route *Route, uri string) (Params, bool) {
 	regex := route.correspondingRegex
 	if !regex.Match([]byte(uri)) {
 		return nil, false
 	} else {
 		match := regex.FindStringSubmatch(uri)
-		var res Params
+		var res Params = make(map[string]string, 5)
 		for i, name := range regex.SubexpNames() {
 			if i != 0 && name != "" {
-				res = append(res, Param{
-					key:   name,
-					value: match[i],
-				})
+				res[name] = match[i]
 			}
 		}
 		return res, true
