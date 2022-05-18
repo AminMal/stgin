@@ -17,7 +17,7 @@ type Controller struct {
 
 func NewController(name string, prefix string) *Controller {
 	return &Controller{
-		Name: name,
+		Name:   name,
 		prefix: normalizePath("/" + prefix),
 	}
 }
@@ -44,12 +44,6 @@ func (controller *Controller) AddAPIListeners(listeners ...APIListener) {
 }
 
 func (controller *Controller) executeInternal(request *http.Request) Status {
-	body := RequestBody{
-		underlying:      nil,
-		underlyingBytes: []byte{},
-		hasFilledBytes:  false,
-	}
-
 	var headers http.Header
 	if request.Header == nil {
 		headers = emptyHeaders
@@ -58,11 +52,17 @@ func (controller *Controller) executeInternal(request *http.Request) Status {
 	}
 
 	rc := RequestContext{
-		Url:           request.URL.Path,
-		QueryParams:   request.URL.Query(),
-		PathParams:    nil,
-		Headers:       headers,
-		Body:          &body,
+		Url:         request.URL.Path,
+		QueryParams: request.URL.Query(),
+		PathParams:  nil,
+		Headers:     headers,
+		Body: func() *RequestBody {
+			return &RequestBody{
+				underlying:      nil,
+				underlyingBytes: []byte{},
+				hasFilledBytes:  false,
+			}
+		},
 		receivedAt:    time.Now(),
 		Method:        request.Method,
 		ContentLength: request.ContentLength,
