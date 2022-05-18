@@ -33,8 +33,12 @@ func acceptsAllQueries(q queries, qs map[string][]string) bool {
 	var accepts = true
 	for name, tpe := range q {
 		value := qs[name]
+		if len(value) == 0 {
+			accepts = false
+			break
+		}
 		for _, v := range value {
-			if !acceptsQuery(tpe, v) {
+			if v == "" || !acceptsQuery(tpe, v) {
 				accepts = false
 				break
 			}

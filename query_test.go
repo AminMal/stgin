@@ -47,7 +47,7 @@ func mkDummyRequest(path string) *http.Request {
 }
 
 func TestAcceptsAllQueries(t *testing.T) {
-	pattern := "/test/queries?query:string&name&age:int"
+	pattern := "/test/queries?query:string&name&age:int&email"
 	dummyRoute := GET(pattern, nil)
 	regex, compileError := getPatternCorrespondingRegex(dummyRoute.Path)
 	if compileError != nil {
@@ -58,16 +58,24 @@ func TestAcceptsAllQueries(t *testing.T) {
 		"query": "string",
 		"name":  "string",
 		"age":   "int",
+		"email": "string",
 	}
 	if !reflect.DeepEqual(dummyRoute.expectedQueries, expectedQueries) {
 		t.Errorf("query parser could not parse expected queries in route pattern")
 	}
-	shouldAccept := "/test/queries?query=search&name=John&age=23&support_extra=true"
-	shouldNotAccept := "/test/queries?query=search&name=John&age=twenty_three"
-	shouldNotAccept2 := "/test/queries?query=search&age=twenty_three"
+	shouldAccept := "/test/queries?query=search&name=John&age=23&support_extra=true&email=john.doe@gmail.com"
+	shouldNotAccept := "/test/queries?query=search&name=John&age=twenty_three&email=john.doe@gmail.com"
+	shouldNotAccept2 := "/test/queries?query=search&age=twenty_three&email=john.doe@gmail.com"
+	empty := "/test/queries"
+
 	shouldAcceptRequest := mkDummyRequest(shouldAccept)
 	shouldNotAcceptRequest := mkDummyRequest(shouldNotAccept)
 	shouldNotAcceptRequest2 := mkDummyRequest(shouldNotAccept2)
+	emptyRequest := mkDummyRequest(empty)
+
+	if acceptsAllQueries(dummyRoute.expectedQueries, emptyRequest.URL.Query()) {
+		t.Fatal("route accepted a request which should not have been accepted")
+	}
 
 	if !acceptsAllQueries(dummyRoute.expectedQueries, shouldAcceptRequest.URL.Query()) {
 		t.Error("route did not accept a request which should've been accepted")
