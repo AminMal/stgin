@@ -31,12 +31,12 @@ func TestControllerListeners(t *testing.T) {
 	}
 
 	var addDummyQuery RequestListener = func(request RequestContext) RequestContext {
-		request.QueryParams = map[string][]string{"dummy": {"yes"}}
+		request.QueryParams = Queries{map[string][]string{"dummy": {"yes"}}}
 		return request
 	}
 	var addApiLog APIListener = func(request RequestContext, status Status) {
 		apiLogToTerminalString = fmt.Sprintf("request with path %v completed with status %d", request.Url, status.StatusCode)
-		dummyQuery, _ = request.GetQuery("dummy")
+		dummyQuery = request.QueryParams.MustGet("dummy")
 	}
 
 	controller := NewController("TestSuite", "/test")

@@ -5,7 +5,6 @@ import (
 	"encoding/xml"
 	"net/http"
 	"net/url"
-	"strconv"
 	"testing"
 	"time"
 )
@@ -13,13 +12,13 @@ import (
 func TestRequestContext_GetQuery(t *testing.T) {
 	rc := RequestContext{
 		Url:         "/test",
-		QueryParams: map[string][]string{"q": {"search"}, "date": {"2022-19:D"}},
-		PathParams:  Params{},
+		QueryParams: Queries{map[string][]string{"q": {"search"}, "date": {"2022-19:D"}}},
+		PathParams:  PathParams{Params{}},
 		Headers:     emptyHeaders,
 		receivedAt:  time.Now(),
 		Method:      "GET",
 	}
-	q, found := rc.GetQuery("q")
+	q, found := rc.QueryParams.GetOne("q")
 	if !found {
 		t.Fatal("request context .GetQuery method failed")
 	}
@@ -48,8 +47,8 @@ func TestRequestContext_GetPathParam(t *testing.T) {
 		t.Fatal("route does not accept the input uri")
 	}
 	rc := requestContextFromHttpRequest(&req, nil, pathParams)
-	username := rc.MustGetPathParam("username")
-	uid, _ := strconv.Atoi(rc.MustGetPathParam("uid"))
+	username := rc.PathParams.MustGet("username")
+	uid := rc.PathParams.MustGetInt("uid")
 	if username != "JohnDoe" || uid != 14 {
 		t.Fatal("request context failed to load path params correctly")
 	}
@@ -116,8 +115,8 @@ func TestRequestContext_MustGetPathParam(t *testing.T) {
 	}
 
 	requestContext := requestContextFromHttpRequest(req, nil, pathParams)
-	if requestContext.MustGetPathParam("username") != "John" ||
-		requestContext.MustGetPathParam("pid") != "27" {
+	if requestContext.PathParams.MustGet("username") != "John" ||
+		requestContext.PathParams.MustGetInt("pid") != 27 {
 		t.Fatal("path params parse failure")
 	}
 }

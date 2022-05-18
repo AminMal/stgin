@@ -3,7 +3,6 @@ package stgin
 import (
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -12,8 +11,8 @@ import (
 
 type RequestContext struct {
 	Url           string
-	QueryParams   map[string][]string
-	PathParams    Params
+	QueryParams   Queries
+	PathParams    PathParams
 	Headers       http.Header
 	Trailer       http.Header
 	Body          func() *RequestBody
@@ -87,48 +86,6 @@ func (c RequestContext) AddCookie(cookie *http.Cookie) {
 	c.underlying.AddCookie(cookie)
 }
 
-func (c RequestContext) GetPathParam(name string) (string, bool) {
-	var res string
-	var found bool
-	for key, value := range c.PathParams {
-		if key == name {
-			found = true
-			res = value
-			break
-		}
-	}
-	return res, found
-}
-
-func (c RequestContext) MustGetPathParam(name string) string {
-	value, found := c.GetPathParam(name)
-	if !found {
-		panic(fmt.Sprintf("used MustGetPathParam while path parameter %s does not exist", name))
-	}
-	return value
-}
-
-func (c RequestContext) GetQueries(name string) []string {
-	return c.QueryParams[name]
-}
-
-func (c RequestContext) GetQuery(name string) (string, bool) {
-	allValues := c.QueryParams[name]
-	if len(allValues) == 1 {
-		return allValues[0], true
-	} else {
-		return "", false
-	}
-}
-
-func (c RequestContext) MustGetQuery(name string) string {
-	query, found := c.GetQuery(name)
-	if !found {
-		panic(fmt.Sprintf("used MustGetQuery while query parameter %s does not exist, or has more than one value", name))
-	}
-	return query
-}
-
 type RequestBody struct {
 	underlying      io.Reader
 	underlyingBytes []byte
@@ -159,7 +116,11 @@ func bodyFromReadCloser(reader io.ReadCloser) (*RequestBody, error) {
 }
 
 func requestContextFromHttpRequest(request *http.Request, writer http.ResponseWriter, pathParams Params) RequestContext {
-	pusher, isSupported := writer.(http.Pusher)
+	var pusher http.Pusher
+	var isSupported bool
+	if writer != nil {
+		pusher, isSupported = writer.(http.Pusher)
+	}
 	var headers http.Header
 	if request.Header == nil {
 		headers = emptyHeaders
@@ -168,8 +129,8 @@ func requestContextFromHttpRequest(request *http.Request, writer http.ResponseWr
 	}
 	return RequestContext{
 		Url:         request.URL.Path,
-		QueryParams: request.URL.Query(),
-		PathParams:  pathParams,
+		QueryParams: Queries{request.URL.Query()},
+		PathParams:  PathParams{pathParams},
 		Headers:     headers,
 		Trailer:     request.Trailer,
 		Body: func() *RequestBody {

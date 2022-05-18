@@ -1,7 +1,9 @@
 package stgin
 
 import (
+	"fmt"
 	"github.com/AminMal/slogger/colored"
+	"path"
 	"runtime"
 	"strings"
 	"unicode/utf8"
@@ -53,6 +55,18 @@ func relevantCallers() []runtime.Frame {
 		}
 	}
 	return fs
+}
+
+func printStacktrace(firstLine string) {
+	callers := relevantCallers()
+	var stacktrace string
+	if firstLine != "" {
+		stacktrace += "\n"
+	}
+	for _, caller := range callers {
+		stacktrace += fmt.Sprintf("\tIn: %s (%s:%d)\n", caller.Function, path.Base(caller.File), caller.Line)
+	}
+	fmt.Print(stacktrace)
 }
 
 func normalizePath(path string) string {

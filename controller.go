@@ -53,8 +53,8 @@ func (controller *Controller) executeInternal(request *http.Request) Status {
 
 	rc := RequestContext{
 		Url:         request.URL.Path,
-		QueryParams: request.URL.Query(),
-		PathParams:  nil,
+		QueryParams: Queries{request.URL.Query()},
+		PathParams:  PathParams{nil},
 		Headers:     headers,
 		Body: func() *RequestBody {
 			return &RequestBody{
@@ -83,7 +83,7 @@ func (controller *Controller) executeInternal(request *http.Request) Status {
 	for _, route := range controller.routes {
 		matches, pathParams := route.acceptsAndPathParams(request)
 		if matches && acceptsAllQueries(route.expectedQueries, request.URL.Query()) {
-			rc.PathParams = pathParams
+			rc.PathParams = PathParams{pathParams}
 			done = true
 			result = route.Action(rc)
 			break

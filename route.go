@@ -15,7 +15,7 @@ type Route struct {
 	correspondingRegex *regexp.Regexp
 	controller         *Controller
 	dir                string
-	expectedQueries    queries
+	expectedQueries    queryDecl
 }
 
 func (route Route) isStaticDir() bool { return route.dir != "" }
@@ -39,6 +39,10 @@ func getRoutePatternRegexOrPanic(pattern string) *regexp.Regexp {
 }
 
 func mkRoute(pattern string, api API, method string) Route {
+	if api == nil {
+		printStacktrace("")
+		panic("cannot use nil as an API action")
+	}
 	path, queryDefs := splitBy(pattern, "?")
 	return Route{
 		Path:            path,
@@ -94,62 +98,7 @@ type RouteCreationStage struct {
 }
 
 func (stage RouteCreationStage) Do(api API) Route {
-	switch strings.ToUpper(stage.method) {
-	case "GET":
-		return GET(stage.path, api)
-	case "PUT":
-		return PUT(stage.path, api)
-	case "POST":
-		return POST(stage.path, api)
-	case "DELETE":
-		return DELETE(stage.path, api)
-	case "PATCH":
-		return PATCH(stage.path, api)
-	default:
-		return GET(stage.path, api)
-	}
-}
-
-func OnGET(path string) RouteCreationStage {
-	return RouteCreationStage{
-		method: "GET",
-		path:   path,
-	}
-}
-
-func OnPUT(path string) RouteCreationStage {
-	return RouteCreationStage{
-		method: "PUT",
-		path:   path,
-	}
-}
-
-func OnPOST(path string) RouteCreationStage {
-	return RouteCreationStage{
-		method: "POST",
-		path:   path,
-	}
-}
-
-func OnDelete(path string) RouteCreationStage {
-	return RouteCreationStage{
-		method: "DELETE",
-		path:   path,
-	}
-}
-
-func OnPatch(path string) RouteCreationStage {
-	return RouteCreationStage{
-		method: "PATCH",
-		path:   path,
-	}
-}
-
-func OnOptions(path string) RouteCreationStage {
-	return RouteCreationStage{
-		method: "OPTIONS",
-		path:   path,
-	}
+	return mkRoute(stage.path, api, strings.ToUpper(stage.method))
 }
 
 func OnPath(path string) RouteCreationStage {

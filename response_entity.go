@@ -15,7 +15,7 @@ const (
 	plainText       = "text/plain"
 )
 
-var getFileFormatRegex = regexp.MustCompile(".*\\.(.+)")
+var getFileFormatRegex = regexp.MustCompile(".*\\.(.+)$")
 
 type ResponseEntity interface {
 	ContentType() string
@@ -28,7 +28,7 @@ func marshall(re ResponseEntity) (bytes []byte, contentType string, err error) {
 	return
 }
 
-type emptyEntity struct {}
+type emptyEntity struct{}
 
 func (e emptyEntity) ContentType() string {
 	return plainText
@@ -120,18 +120,6 @@ func (f fileContent) ContentType() string {
 
 func (f fileContent) Bytes() ([]byte, error) {
 	return os.ReadFile(f.path)
-}
-
-type dirPlaceholder struct {
-	path string
-}
-
-func (d dirPlaceholder) ContentType() string {
-	return "text/html" // will be overriden by http handler func by default
-}
-
-func (d dirPlaceholder) Bytes() ([]byte, error) {
-	return []byte{}, nil // will be handled by go http handler func
 }
 
 func Json(a any) ResponseEntity {

@@ -3,8 +3,8 @@ package stgin
 import (
 	"fmt"
 	"net/http"
-	"testing"
 	"net/url"
+	"testing"
 )
 
 func welcomeAPI(RequestContext) Status {
@@ -28,7 +28,7 @@ func responseAddHeadersListener(response Status) Status {
 }
 
 func requestQueryModifier(request RequestContext) RequestContext {
-	request.QueryParams["test"] = []string{"true"}
+	request.QueryParams.All["test"] = []string{"true"}
 	return request
 }
 
@@ -45,8 +45,8 @@ func TestResponseListeners(t *testing.T) {
 	testController.AddResponseListener(responseBodyModifier, responseStatusModifier, responseAddHeadersListener)
 	uri, _ := url.Parse("/test/welcome")
 	request := http.Request{
-		Method: "GET",
-		URL: uri,
+		Method:     "GET",
+		URL:        uri,
 		RequestURI: "/test/welcome",
 	}
 	result := testController.executeInternal(&request)
@@ -71,16 +71,16 @@ func TestRequestListeners(t *testing.T) {
 	var testQueryValue string
 	var testHeaderValue string
 	testController.AddRoutes(GET("/req", func(request RequestContext) Status {
-		fmt.Println("queries: ", request.QueryParams, "headers: ", request.Headers)
-		testQueryValue, _ = request.GetQuery("test")
+		fmt.Println("queryDecl: ", request.QueryParams, "headers: ", request.Headers)
+		testQueryValue = request.QueryParams.MustGet("test")
 		testHeaderValue = request.Headers.Get("X-Test-Listeners")
 		return Ok(Text("Done"))
 	}))
 	testController.AddRequestListeners(requestHeaderModifier, requestQueryModifier)
 	uri, _ := url.Parse("/test/req")
 	request := http.Request{
-		Method: "GET",
-		URL: uri,
+		Method:     "GET",
+		URL:        uri,
 		RequestURI: "/test/req",
 	}
 	_ = testController.executeInternal(&request)

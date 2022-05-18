@@ -93,7 +93,7 @@ Your application will be up and running.
 Another approach to define routes is route builder. You might want to use some method which is not defined in stgin default routing methods.
 You can use:
 ```go
-stgin.OnPath("/your/path").WithMethod("SOMETHING").Do(
+stgin.OnPattern("/your/path/$path_param").WithMethod("something").Do(
 	func(req stgin.RequestContext) stgin.Status{...},
 )
 ```

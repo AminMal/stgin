@@ -15,12 +15,12 @@ type Q struct {
 }
 
 func TestRequestContext_QueryToObj(t *testing.T) {
-	uri, _ := url.Parse("/test/queries?query=search&name=John&Untagged=used&age=29")
+	uri, _ := url.Parse("/test/queryDecl?query=search&name=John&Untagged=used&age=29")
 	req := http.Request{
 		Method:     "GET",
 		URL:        uri,
 		Header:     emptyHeaders,
-		RequestURI: "/test/queries?query=search&name=John&Untagged=used&age=29",
+		RequestURI: "/test/queryDecl?query=search&name=John&Untagged=used&age=29",
 	}
 	rc := requestContextFromHttpRequest(&req, nil, Params{})
 	emptyQuery := Q{
@@ -47,26 +47,26 @@ func mkDummyRequest(path string) *http.Request {
 }
 
 func TestAcceptsAllQueries(t *testing.T) {
-	pattern := "/test/queries?query:string&name&age:int&email"
-	dummyRoute := GET(pattern, nil)
+	pattern := "/test/queryDecl?query:string&name&age:int&email"
+	dummyRoute := GET(pattern, func(_ RequestContext) Status { return Ok(Empty()) })
 	regex, compileError := getPatternCorrespondingRegex(dummyRoute.Path)
 	if compileError != nil {
 		t.Fatalf("could not compile route pattern: %s", dummyRoute.Path)
 	}
 	dummyRoute.correspondingRegex = regex
-	expectedQueries := queries{
+	expectedQueries := queryDecl{
 		"query": "string",
 		"name":  "string",
 		"age":   "int",
 		"email": "string",
 	}
 	if !reflect.DeepEqual(dummyRoute.expectedQueries, expectedQueries) {
-		t.Errorf("query parser could not parse expected queries in route pattern")
+		t.Errorf("query parser could not parse expected queryDecl in route pattern")
 	}
-	shouldAccept := "/test/queries?query=search&name=John&age=23&support_extra=true&email=john.doe@gmail.com"
-	shouldNotAccept := "/test/queries?query=search&name=John&age=twenty_three&email=john.doe@gmail.com"
-	shouldNotAccept2 := "/test/queries?query=search&age=twenty_three&email=john.doe@gmail.com"
-	empty := "/test/queries"
+	shouldAccept := "/test/queryDecl?query=search&name=John&age=23&support_extra=true&email=john.doe@gmail.com"
+	shouldNotAccept := "/test/queryDecl?query=search&name=John&age=twenty_three&email=john.doe@gmail.com"
+	shouldNotAccept2 := "/test/queryDecl?query=search&age=twenty_three&email=john.doe@gmail.com"
+	empty := "/test/queryDecl"
 
 	shouldAcceptRequest := mkDummyRequest(shouldAccept)
 	shouldNotAcceptRequest := mkDummyRequest(shouldNotAccept)

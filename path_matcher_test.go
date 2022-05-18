@@ -7,7 +7,8 @@ import (
 
 func TestMatchAndExtractPathParams(t *testing.T) {
 	pattern := "/users/$username:string/purchases/$id:int?age"
-	dummyRoute := GET(pattern, nil)
+	var dummyAPI API = func(_ RequestContext) Status { return Ok(Empty()) }
+	dummyRoute := GET(pattern, dummyAPI)
 	regex, compileErr := getPatternCorrespondingRegex(dummyRoute.Path)
 	if compileErr != nil {
 		t.Errorf("could not compile '%s' as a valid uri pattern", normalizePath(pattern))

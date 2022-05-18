@@ -15,7 +15,6 @@ type Status struct {
 	Entity     ResponseEntity
 	Headers    http.Header
 	cookies    []*http.Cookie
-	isDir      bool
 	doneAt     time.Time
 }
 
@@ -72,7 +71,7 @@ func CreateResponse(statusCode int, body ResponseEntity) Status {
 	return Status{
 		StatusCode: statusCode,
 		Entity:     body,
-		Headers: emptyHeaders,
+		Headers:    emptyHeaders,
 	}
 }
 
@@ -154,14 +153,5 @@ func File(path string) Status {
 		}
 	} else {
 		return Ok(file)
-	}
-}
-
-func Dir(fs string) Status {
-	dir := dirPlaceholder{path: fs}
-	return Status{
-		StatusCode: 200,
-		Entity:     dir,
-		isDir:      true,
 	}
 }
