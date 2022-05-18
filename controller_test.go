@@ -17,7 +17,7 @@ var ping Route = GET("/ping", func(_ RequestContext) Status {
 
 func TestNewController(t *testing.T) {
 	controller := NewController("TestSuite", "test")
-	if controller.Name != "TestSuite" || controller.prefix != "/test" {
+	if controller.Name != "TestSuite" || controller.prefix != "/test/" {
 		t.Error("controller configuration mismatch")
 	}
 }

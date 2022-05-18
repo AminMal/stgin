@@ -7,48 +7,24 @@ import (
 	"strings"
 )
 
-const (
-	intRegexStr       = "[0-9]+"
-	floatRegexStr     = "[+\\-]?(?:(?:0|[1-9]\\d*)(?:\\.\\d*)?|\\.\\d+)(?:\\d[eE][+\\-]?\\d+)?"
-	stringRegexStr    = "[a-zA-Z0-9_!@#$%^&*()+=-]+"
-	expectQueryParams = "(\\?.*)?"
-)
-
-var intRegex = regexp.MustCompile(intRegexStr)
-var floatRegex = regexp.MustCompile(floatRegexStr)
-var stringRegex = regexp.MustCompile(stringRegexStr)
-
 var getPathParamSpecificationRegex = regexp.MustCompile("^(\\$[a-zA-Z0-9_-]+(:[a-z]{1,6})?)$")
-
-type pathMatcher struct {
-	key                string
-	tpe                string
-	correspondingRegex *regexp.Regexp
-	rawRegex           string
-}
 
 type Params = map[string]string
 
-func getMatcher(key, tpe string) *pathMatcher {
-	var correspondingRegex string
+func getMatcherRawRegex(key, tpe string) string {
+	var rawRegex string
 	switch tpe {
 	case "int":
-		correspondingRegex = fmt.Sprintf("(?P<%s>%s)", key, intRegexStr)
+		rawRegex = fmt.Sprintf("(?P<%s>%s)", key, intRegexStr)
 	case "float":
-		correspondingRegex = fmt.Sprintf("(?P<%s>%s)", key, floatRegexStr)
+		rawRegex = fmt.Sprintf("(?P<%s>%s)", key, floatRegexStr)
 	default:
-		correspondingRegex = fmt.Sprintf("(?P<%s>%s)", key, stringRegexStr)
+		rawRegex = fmt.Sprintf("(?P<%s>%s)", key, stringRegexStr)
 	}
-	return &pathMatcher{
-		key:                key,
-		tpe:                tpe,
-		correspondingRegex: regexp.MustCompile(correspondingRegex),
-		rawRegex:           correspondingRegex,
-	}
+	return rawRegex
 }
 
 func getPatternCorrespondingRegex(pattern string) (*regexp.Regexp, error) {
-	pattern = normalizePath(pattern)
 	portions := strings.Split(pattern, "/")
 	rawPatternRegex := ""
 	for i, portion := range portions {
@@ -64,8 +40,7 @@ func getPatternCorrespondingRegex(pattern string) (*regexp.Regexp, error) {
 			} else {
 				tpe = keyAndType[1]
 			}
-			matcher := getMatcher(key, tpe)
-			rawPatternRegex += matcher.rawRegex
+			rawPatternRegex += getMatcherRawRegex(key, tpe)
 		}
 		if i != len(portions)-1 {
 			rawPatternRegex += "/"
@@ -79,7 +54,7 @@ func getPatternCorrespondingRegex(pattern string) (*regexp.Regexp, error) {
 	}
 }
 
-func MatchAndExtractPathParams(route *Route, uri string) (Params, bool) {
+func matchAndExtractPathParams(route *Route, uri string) (Params, bool) {
 	regex := route.correspondingRegex
 	if !regex.Match([]byte(uri)) {
 		return nil, false

@@ -20,16 +20,11 @@ type Route struct {
 
 func (route Route) isStaticDir() bool { return route.dir != "" }
 
-func (route Route) withPrefixPrepended(controllerPrefix string) Route {
-	route.Path = normalizePath(controllerPrefix + route.Path)
-	return route
-}
-
 func (route Route) acceptsAndPathParams(request *http.Request) (bool, Params) {
 	var ok bool
 	var params Params
 	if request.Method == route.Method {
-		params, ok = MatchAndExtractPathParams(&route, request.URL.Path)
+		params, ok = matchAndExtractPathParams(&route, request.URL.Path)
 	}
 
 	return ok, params
@@ -45,10 +40,10 @@ func getRoutePatternRegexOrPanic(pattern string) *regexp.Regexp {
 
 func mkRoute(pattern string, api API, method string) Route {
 	path, queryDefs := splitBy(pattern, "?")
-	return Route {
-		Path: path,
-		Method: method,
-		Action: api,
+	return Route{
+		Path:            path,
+		Method:          method,
+		Action:          api,
 		expectedQueries: getQueryDefinitionsFromPattern(queryDefs),
 	}
 }

@@ -2,6 +2,7 @@ package stgin
 
 import (
 	"github.com/AminMal/slogger/colored"
+	"runtime"
 	"strings"
 	"unicode/utf8"
 )
@@ -34,4 +35,26 @@ func getColor(status int) colored.Color {
 func trimFirstRune(s string) string {
 	_, i := utf8.DecodeRuneInString(s)
 	return s[i:]
+}
+
+func relevantCallers() []runtime.Frame {
+	pc := make([]uintptr, 16)
+	n := runtime.Callers(1, pc)
+	frames := runtime.CallersFrames(pc[:n])
+	var fs []runtime.Frame
+	for {
+		f, more := frames.Next()
+		if more {
+			if !strings.HasPrefix(f.Function, "github.com/AminMal/stgin.") {
+				fs = append(fs, f)
+			}
+		} else {
+			break
+		}
+	}
+	return fs
+}
+
+func normalizePath(path string) string {
+	return multipleSlashesRegex.ReplaceAllString(path, "/")
 }

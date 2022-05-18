@@ -229,14 +229,12 @@ func (server *Server) handler() http.Handler {
 		for _, route := range controller.routes {
 			var log string
 			if !route.isStaticDir() {
-				route = route.withPrefixPrepended(controller.prefix)
 				methodWithRoutes[route.Method] = append(methodWithRoutes[route.Method], route)
 				log = routeAppendLog(controller.Name, route.Method, route.Path)
 			} else {
-				routePath := route.withPrefixPrepended(controller.prefix).Path
 				dir := route.dir
-				log = bindStaticDirLog(routePath, dir)
-				mux.Handle(routePath, http.StripPrefix(routePath, http.FileServer(http.Dir(dir))))
+				log = bindStaticDirLog(route.Path, dir)
+				mux.Handle(route.Path, http.StripPrefix(route.Path, http.FileServer(http.Dir(dir))))
 			}
 			_ = stginLogger.Info(log)
 		}

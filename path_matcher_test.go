@@ -14,7 +14,7 @@ func TestMatchAndExtractPathParams(t *testing.T) {
 	}
 	dummyRoute.correspondingRegex = regex
 	uri := "/users/John/purchases/675?age=23"
-	params, matches := MatchAndExtractPathParams(&dummyRoute, uri)
+	params, matches := matchAndExtractPathParams(&dummyRoute, uri)
 	expected := Params{
 		"username": "John",
 		"id":       "675",

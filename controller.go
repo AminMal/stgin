@@ -18,15 +18,15 @@ type Controller struct {
 func NewController(name string, prefix string) *Controller {
 	return &Controller{
 		Name:   name,
-		prefix: normalizePath("/" + prefix),
+		prefix: "/" + prefix + "/",
 	}
 }
 
 func (controller *Controller) AddRoutes(routes ...Route) {
 	for _, route := range routes {
-		path := normalizePath(controller.prefix + route.Path)
 		route.controller = controller
-		route.correspondingRegex = getRoutePatternRegexOrPanic(path)
+		route.Path = normalizePath(controller.prefix + route.Path)
+		route.correspondingRegex = getRoutePatternRegexOrPanic(route.Path)
 		controller.routes = append(controller.routes, route)
 	}
 }
@@ -81,7 +81,7 @@ func (controller *Controller) executeInternal(request *http.Request) Status {
 	var done bool
 	var result Status
 	for _, route := range controller.routes {
-		matches, pathParams := route.withPrefixPrepended(controller.prefix).acceptsAndPathParams(request)
+		matches, pathParams := route.acceptsAndPathParams(request)
 		if matches && acceptsAllQueries(route.expectedQueries, request.URL.Query()) {
 			rc.PathParams = pathParams
 			done = true

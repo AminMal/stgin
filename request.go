@@ -143,14 +143,6 @@ func bodyFromBytes(bytes []byte) *RequestBody {
 	}
 }
 
-func bodyFromReader(reader io.Reader) *RequestBody {
-	return &RequestBody{
-		underlying:      reader,
-		underlyingBytes: nil,
-		hasFilledBytes:  false,
-	}
-}
-
 func bodyFromReadCloser(reader io.ReadCloser) (*RequestBody, error) {
 	defer func(r io.ReadCloser) {
 		err := r.Close()
