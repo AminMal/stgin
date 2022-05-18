@@ -90,6 +90,14 @@ func main() {
 ```
 Your application will be up and running.
 
+Another approach to define routes is route builder. You might want to use some method which is not defined in stgin default routing methods.
+You can use:
+```go
+stgin.OnPath("/your/path").WithMethod("SOMETHING").Do(
+	func(req stgin.RequestContext) stgin.Status{...},
+)
+```
+
 A comparison between STgin and go-gin, writing a simple API:
 ```go
 // Given response type as
@@ -198,6 +206,11 @@ The structure of STgin types and interfaces is pretty simple, a `Server` may hav
     ```
   
 # Query Parameters
+* When to define?
+
+  Define query parameter specifications only for mandatory and non-empty query parameter expectations.
+
+
 * How to define?
 
   When defining a route, you can specify which query params of what type the route should expect. If a request could not satisfy the expected queries, it will be rejected by the route and will be passed into the next route and so on.
