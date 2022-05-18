@@ -16,6 +16,7 @@ type RequestContext struct {
 	QueryParams   map[string][]string
 	PathParams    Params
 	Headers       http.Header
+	Trailer       http.Header
 	Body          *RequestBody
 	receivedAt    time.Time
 	Method        string
@@ -44,8 +45,43 @@ func (c RequestContext) Cookies() []*http.Cookie {
 	return c.underlying.Cookies()
 }
 
+func (c RequestContext) Referer() string { return c.underlying.Referer() }
+
+func (c RequestContext) UserAgent() string { return c.underlying.UserAgent() }
+
 func (c RequestContext) Cookie(name string) (*http.Cookie, error) {
 	return c.underlying.Cookie(name)
+}
+
+func (c RequestContext) FormValue(key string) string {
+	return c.underlying.FormValue(key)
+}
+
+func (c RequestContext) FormFile(key string) (multipart.File, *multipart.FileHeader, error) {
+	return c.underlying.FormFile(key)
+}
+
+func (c RequestContext) PostFormValue(key string) string {
+	return c.underlying.PostFormValue(key)
+}
+
+func (c RequestContext) ParseMultipartForm(maxMemory int64) error {
+	return c.underlying.ParseMultipartForm(maxMemory)
+}
+
+func (c RequestContext) Form() (map[string][]string, error) {
+	if err := c.underlying.ParseForm(); err != nil {
+		return nil, err
+	}
+	return c.underlying.Form, nil
+}
+
+func (c RequestContext) PostForm() (map[string][]string, error) {
+	if err := c.underlying.ParseForm(); err != nil {
+		return nil, err
+	} else {
+		return c.underlying.PostForm, nil
+	}
 }
 
 func (c RequestContext) AddCookie(cookie *http.Cookie) {
@@ -55,10 +91,10 @@ func (c RequestContext) AddCookie(cookie *http.Cookie) {
 func (c RequestContext) GetPathParam(name string) (string, bool) {
 	var res string
 	var found bool
-	for _, param := range c.PathParams {
-		if param.key == name {
+	for key, value := range c.PathParams {
+		if key == name {
 			found = true
-			res = param.value
+			res = value
 			break
 		}
 	}
@@ -74,17 +110,11 @@ func (c RequestContext) MustGetPathParam(name string) string {
 }
 
 func (c RequestContext) GetQueries(name string) []string {
-	var res []string
-	for queryName, values := range c.QueryParams {
-		if queryName == name {
-			res = values
-		}
-	}
-	return res
+	return c.QueryParams[name]
 }
 
 func (c RequestContext) GetQuery(name string) (string, bool) {
-	allValues := c.GetQueries(name)
+	allValues := c.QueryParams[name]
 	if len(allValues) == 1 {
 		return allValues[0], true
 	} else {
@@ -94,7 +124,9 @@ func (c RequestContext) GetQuery(name string) (string, bool) {
 
 func (c RequestContext) MustGetQuery(name string) string {
 	query, found := c.GetQuery(name)
-	if !found { panic(fmt.Sprintf("used MustGetQuery while query parameter %s does not exist, or has more than one values", name)) }
+	if !found {
+		panic(fmt.Sprintf("used MustGetQuery while query parameter %s does not exist, or has more than one value", name))
+	}
 	return query
 }
 
@@ -155,6 +187,7 @@ func requestContextFromHttpRequest(request *http.Request, writer http.ResponseWr
 		QueryParams:   request.URL.Query(),
 		PathParams:    pathParams,
 		Headers:       headers,
+		Trailer:       request.Trailer,
 		Body:          body,
 		receivedAt:    time.Now(),
 		Method:        request.Method,
@@ -163,12 +196,12 @@ func requestContextFromHttpRequest(request *http.Request, writer http.ResponseWr
 		MultipartForm: func() *multipart.Form {
 			return request.MultipartForm
 		},
-		Scheme:        request.URL.Scheme,
-		RemoteAddr:    request.RemoteAddr,
-		underlying:    request,
-		HttpPush:      Push{
+		Scheme:     request.URL.Scheme,
+		RemoteAddr: request.RemoteAddr,
+		underlying: request,
+		HttpPush: Push{
 			IsSupported: isSupported,
-			pusher: pusher,
+			pusher:      pusher,
 		},
 	}
 }
