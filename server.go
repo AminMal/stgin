@@ -12,13 +12,13 @@ import (
 var defaultController *Controller = NewController("Default", "")
 
 type Server struct {
-	port                   int
-	Controllers            []*Controller
-	requestListeners       []RequestListener
-	responseListeners      []ResponseListener
-	apiListeners           []APIListener
-	notFoundAction         API
-	errorAction            ErrorHandler
+	port              int
+	Controllers       []*Controller
+	requestListeners  []RequestListener
+	responseListeners []ResponseListener
+	apiListeners      []APIListener
+	notFoundAction    API
+	errorAction       ErrorHandler
 }
 
 func (server *Server) Register(controllers ...*Controller) {
@@ -37,10 +37,10 @@ func (server *Server) AddRoutes(routes ...Route) {
 func (server *Server) CorsHandler(handler CorsHandler) {
 	server.AddRoutes(OPTIONS(Prefix(""), func(RequestContext) Status {
 		return Ok(Empty()).WithHeaders(http.Header{
-			"Access-Control-Allow-Origin": handler.AllowOrigin,
+			"Access-Control-Allow-Origin":      handler.AllowOrigin,
 			"Access-Control-Allow-Credentials": handler.AllowCredentials,
-			"Access-Control-Allow-Headers": handler.AllowHeaders,
-			"Access-Control-Allow-Methods": handler.AllowMethods,
+			"Access-Control-Allow-Headers":     handler.AllowHeaders,
+			"Access-Control-Allow-Methods":     handler.AllowMethods,
 		})
 	}))
 }
@@ -63,10 +63,6 @@ func (server *Server) NotFoundAction(action API) {
 
 func (server *Server) SetErrorHandler(action ErrorHandler) {
 	server.errorAction = action
-}
-
-type msg struct {
-	Message string `json:"message"`
 }
 
 func translate(
@@ -109,21 +105,8 @@ func translate(
 		result.complete(request, writer)
 
 		for _, apiListener := range apiListeners {
-			apiListener(rc, result)
+			go apiListener(rc, result)
 		}
-	}
-}
-
-func getColor(status int) colored.Color {
-	switch {
-	case status > 100 && status < 300:
-		return colored.GREEN
-	case status >= 300 && status < 500:
-		return colored.YELLOW
-	case status >= 500:
-		return colored.RED
-	default:
-		return colored.CYAN
 	}
 }
 
@@ -142,7 +125,7 @@ type generalFailureMessage struct {
 
 var notFoundDefaultAction API = func(request RequestContext) Status {
 	return NotFound(Json(&generalFailureMessage{
-		StatusCode: 404,
+		StatusCode: http.StatusNotFound,
 		Path:       request.Url,
 		Message:    "route not found",
 		Method:     request.Method,
@@ -179,29 +162,23 @@ type apiHandler struct {
 
 func (handler apiHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	var done bool
-	for method, routes := range handler.methodWithRoutes {
-		if method != request.Method {
-			continue
-		}
-		// method matches
-		for _, route := range routes {
-			accepts, pathParams := route.acceptsAndPathParams(request)
-			if accepts && acceptsAllQueries(route.expectedQueries, request.URL.Query()) {
-				requestListeners := append(handler.server.requestListeners, route.controller.requestListeners...)
-				responseListeners := append(handler.server.responseListeners, route.controller.responseListeners...)
-				apiListeners := append(handler.server.apiListeners, route.controller.apiListeners...)
-				handlerFunc := translate(
-					route.Action,
-					requestListeners,
-					responseListeners,
-					apiListeners,
-					handler.server.errorAction,
-					pathParams,
-				)
-				handlerFunc(writer, request)
-				done = true
-				break
-			}
+	for _, route := range handler.methodWithRoutes[request.Method] {
+		accepts, pathParams := route.acceptsAndPathParams(request)
+		if accepts && acceptsAllQueries(route.expectedQueries, request.URL.Query()) {
+			requestListeners := append(handler.server.requestListeners, route.controller.requestListeners...)
+			responseListeners := append(handler.server.responseListeners, route.controller.responseListeners...)
+			apiListeners := append(handler.server.apiListeners, route.controller.apiListeners...)
+			handlerFunc := translate(
+				route.Action,
+				requestListeners,
+				responseListeners,
+				apiListeners,
+				handler.server.errorAction,
+				pathParams,
+			)
+			handlerFunc(writer, request)
+			done = true
+			break
 		}
 	}
 	// no route matches the request
@@ -264,7 +241,7 @@ func (server *Server) handler() http.Handler {
 			_ = stginLogger.Info(log)
 		}
 	}
-	mux.Handle("/", http.StripPrefix("", apiHandler{methodWithRoutes: methodWithRoutes, server: server}))
+	mux.Handle("/", apiHandler{methodWithRoutes: methodWithRoutes, server: server})
 	return mux
 }
 
@@ -275,10 +252,10 @@ func (server *Server) Start() error {
 
 func NewServer(port int) *Server {
 	return &Server{
-		port:                   port,
-		notFoundAction:         notFoundDefaultAction,
-		errorAction:            nil,
-		Controllers: 			[]*Controller{defaultController},
+		port:           port,
+		notFoundAction: notFoundDefaultAction,
+		errorAction:    nil,
+		Controllers:    []*Controller{defaultController},
 	}
 }
 
