@@ -5,7 +5,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"time"
@@ -157,10 +156,9 @@ func bodyFromReadCloser(reader io.ReadCloser) (*RequestBody, error) {
 		err := r.Close()
 		if err != nil {
 			_ = stginLogger.Err("could not close reader stream from request")
-			return
 		}
 	}(reader)
-	bytes, err := ioutil.ReadAll(reader)
+	bytes, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	} else {
@@ -170,10 +168,11 @@ func bodyFromReadCloser(reader io.ReadCloser) (*RequestBody, error) {
 
 func requestContextFromHttpRequest(request *http.Request, writer http.ResponseWriter, pathParams Params) RequestContext {
 	var body *RequestBody
-	if request.Body != nil {
-		body, _ = bodyFromReadCloser(request.Body)
-	} else {
-		body = nil
+	if request.GetBody != nil {
+		reader, err := request.GetBody()
+		if err != nil {
+			body, _ = bodyFromReadCloser(reader)
+		}
 	}
 	pusher, isSupported := writer.(http.Pusher)
 	var headers http.Header
@@ -210,7 +209,7 @@ func (body *RequestBody) fillAndGetBytes() ([]byte, *MalformedRequestContext) {
 	if body.hasFilledBytes {
 		return body.underlyingBytes, nil
 	} else {
-		bytes, err := ioutil.ReadAll(body.underlying)
+		bytes, err := io.ReadAll(body.underlying)
 		if err != nil {
 			return []byte{}, &MalformedRequestContext{details: err.Error()}
 		}

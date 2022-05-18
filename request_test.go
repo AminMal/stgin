@@ -1,6 +1,8 @@
 package stgin
 
 import (
+	"encoding/json"
+	"encoding/xml"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -10,12 +12,12 @@ import (
 
 func TestRequestContext_GetQuery(t *testing.T) {
 	rc := RequestContext{
-		Url:           "/test",
+		Url:         "/test",
 		QueryParams: map[string][]string{"q": {"search"}, "date": {"2022-19:D"}},
-		PathParams:    Params{},
-		Headers:       emptyHeaders,
-		receivedAt:    time.Now(),
-		Method:        "GET",
+		PathParams:  Params{},
+		Headers:     emptyHeaders,
+		receivedAt:  time.Now(),
+		Method:      "GET",
 	}
 	q, found := rc.GetQuery("q")
 	if !found {
@@ -36,9 +38,9 @@ func TestRequestContext_GetPathParam(t *testing.T) {
 	}
 	uri, _ := url.Parse("/test/JohnDoe/14")
 	req := http.Request{
-		Method:           "GET",
-		URL:              uri,
-		Header:           emptyHeaders,
+		Method:     "GET",
+		URL:        uri,
+		Header:     emptyHeaders,
 		RequestURI: "/test/JohnDoe/14",
 	}
 	accepts, pathParams := route.acceptsAndPathParams(&req)
@@ -50,5 +52,72 @@ func TestRequestContext_GetPathParam(t *testing.T) {
 	uid, _ := strconv.Atoi(rc.MustGetPathParam("uid"))
 	if username != "JohnDoe" || uid != 14 {
 		t.Fatal("request context failed to load path params correctly")
+	}
+}
+
+type person struct {
+	Name     string `json:"name" xml:"name"`
+	LastName string `json:"last_name" xml:"last_name"`
+	Age      int    `json:"age" xml:"age"`
+}
+
+var mockBody = person{
+	Name:     "John",
+	LastName: "Doe",
+	Age:      22,
+}
+
+var mockRoute Route = Route{
+	Path:               "/users/$username/purchases/$pid:int",
+	Method:             "GET",
+	correspondingRegex: getRoutePatternRegexOrPanic("/users/$username/purchases/$pid:int"),
+	controller:         defaultController,
+}
+
+func TestRequestBody_SafeJSONInto(t *testing.T) {
+	jsonBytes, _ := json.Marshal(&mockBody)
+	body := RequestBody{
+		underlying:      nil,
+		underlyingBytes: jsonBytes,
+		hasFilledBytes:  true,
+	}
+	var result person
+	err := body.SafeJSONInto(&result)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if result != mockBody {
+		t.Fatal("objects do not match after serialization/deserialization")
+	}
+}
+
+func TestRequestBody_SafeXMLInto(t *testing.T) {
+	jsonBytes, _ := xml.Marshal(&mockBody)
+	body := RequestBody{
+		underlying:      nil,
+		underlyingBytes: jsonBytes,
+		hasFilledBytes:  true,
+	}
+	var result person
+	err := body.SafeXMLInto(&result)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if result != mockBody {
+		t.Fatal("objects do not match after serialization/deserialization")
+	}
+}
+
+func TestRequestContext_MustGetPathParam(t *testing.T) {
+	req := mkDummyRequest("/users/John/purchases/27")
+	accepts, pathParams := mockRoute.acceptsAndPathParams(req)
+	if !accepts {
+		t.Error("route did not accept given uri")
+	}
+
+	requestContext := requestContextFromHttpRequest(req, nil, pathParams)
+	if requestContext.MustGetPathParam("username") != "John" ||
+		requestContext.MustGetPathParam("pid") != "27" {
+		t.Fatal("path params parse failure")
 	}
 }
