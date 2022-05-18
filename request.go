@@ -16,7 +16,7 @@ type RequestContext struct {
 	PathParams    Params
 	Headers       http.Header
 	Trailer       http.Header
-	Body          *RequestBody
+	Body          func() *RequestBody
 	receivedAt    time.Time
 	Method        string
 	ContentLength int64
@@ -167,13 +167,6 @@ func bodyFromReadCloser(reader io.ReadCloser) (*RequestBody, error) {
 }
 
 func requestContextFromHttpRequest(request *http.Request, writer http.ResponseWriter, pathParams Params) RequestContext {
-	var body *RequestBody
-	if request.GetBody != nil {
-		reader, err := request.GetBody()
-		if err != nil {
-			body, _ = bodyFromReadCloser(reader)
-		}
-	}
 	pusher, isSupported := writer.(http.Pusher)
 	var headers http.Header
 	if request.Header == nil {
@@ -182,12 +175,18 @@ func requestContextFromHttpRequest(request *http.Request, writer http.ResponseWr
 		headers = request.Header
 	}
 	return RequestContext{
-		Url:           request.URL.Path,
-		QueryParams:   request.URL.Query(),
-		PathParams:    pathParams,
-		Headers:       headers,
-		Trailer:       request.Trailer,
-		Body:          body,
+		Url:         request.URL.Path,
+		QueryParams: request.URL.Query(),
+		PathParams:  pathParams,
+		Headers:     headers,
+		Trailer:     request.Trailer,
+		Body: func() *RequestBody {
+			var body *RequestBody
+			if request.Body != nil {
+				body, _ = bodyFromReadCloser(request.Body)
+			}
+			return body
+		},
 		receivedAt:    time.Now(),
 		Method:        request.Method,
 		ContentLength: request.ContentLength,
