@@ -200,9 +200,13 @@ The structure of STgin types and interfaces is pretty simple, a `Server` may hav
     ```
 * How to get?
     ```
-    username, exists := request.GetPathParam("username")
+    username, exists := request.PathParams.Get("username")
     // or if you're sure about the existence, 
-    username := request.MustGetPathParam("username")
+    username := request.PathParams.MustGet("username")
+    // or if you have specified the type in path pattern
+    purchaseId := request.PathParams.MustGetInt("purchase_id")
+    // or
+    purchaseId, err := request.PathParams.GetInt("purchase_id")
     ```
   
 # Query Parameters
@@ -226,6 +230,13 @@ The structure of STgin types and interfaces is pretty simple, a `Server` may hav
   As mentioned earlier, this pattern will match urls like `/users?id=7&username=JohnDoe&otherquery=whatever&anotherone=true`. 
   And you can access those easily in the request, so no worries about not specifying all the query parameters.
   
+* How to get?
+
+  Just like path parameters, query parameters follow the same rules for receiver functions.
+  ```go
+    userId := request.QueryParams.MustGetInt("user_id")
+    // so on, just like path parameters
+  ```
 
 * Query to object
 
