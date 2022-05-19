@@ -17,8 +17,26 @@ const (
 
 var getFileFormatRegex = regexp.MustCompile(".*\\.(.+)$")
 
+/*
+	ResponseEntity is an interface representing anything that can be sent through http response body.
+	Structs implementing ResponseEntity must have a content type (which is written directly in the response),
+	And also a function which can provide entity bytes, or any error if exists.
+	So for instance if you wanted to define a custom PDF ResponseEntity,
+
+	type PDF struct {
+        filepath string
+    }
+	func (pdf PDF) ContentType() string { return "application/pdf" }
+	func (pdf PDF) Bytes() ([]byte, error) { ... read file ... }
+
+	And simply use it inside your APIs.
+
+	return stgin.Ok(PDF{filePath})
+*/
 type ResponseEntity interface {
+	// ContentType represents *HTTP* response content type of the entity.
 	ContentType() string
+	// Bytes function is responsible to provide response entity bytes, and eny error if exists.
 	Bytes() ([]byte, error)
 }
 
@@ -122,16 +140,21 @@ func (f fileContent) Bytes() ([]byte, error) {
 	return os.ReadFile(f.path)
 }
 
+// Json is a shortcut to convert any object into a JSON ResponseEntity.
 func Json(a any) ResponseEntity {
 	return jsonEntity{obj: a}
 }
 
+// Xml is a shortcut to convert any object into an XML ResponseEntity.
 func Xml(a any) ResponseEntity {
 	return xmlEntity{obj: a}
 }
 
+// Text is a shortcut to convert any object into a text ResponseEntity.
 func Text(text string) ResponseEntity {
 	return textEntity{obj: text}
 }
 
+// Empty is used when you want to return empty responses to the client.
+// There are situations where status codes talk, and there is no need to populate response body with non-meaningful data.
 func Empty() ResponseEntity { return emptyEntity{} }

@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// RequestContext holds all the information about incoming http requests.
 type RequestContext struct {
 	Url           string
 	QueryParams   Queries
@@ -27,11 +28,14 @@ type RequestContext struct {
 	HttpPush      Push
 }
 
+// Push is a struct that represents both the ability, and the functionality of http push inside this request.
 type Push struct {
 	IsSupported bool
 	pusher      http.Pusher
 }
 
+// Pusher returns the actual http.Pusher instance, only if it's supported.
+// Note that this will panic if it's not supported, so make sure to use IsSupported field before calling this function.
 func (p Push) Pusher() http.Pusher {
 	if !p.IsSupported {
 		panic("pusher is not supported in the request")
@@ -39,34 +43,45 @@ func (p Push) Pusher() http.Pusher {
 	return p.pusher
 }
 
+// Cookies returns the cookies that are attached to the request.
 func (c RequestContext) Cookies() []*http.Cookie {
 	return c.underlying.Cookies()
 }
 
+// Referer returns the value of referer header in http request, returns empty string if it does not exist.
 func (c RequestContext) Referer() string { return c.underlying.Referer() }
 
+// UserAgent returns the value of request's user agent, returns empty string if it does not exist.
 func (c RequestContext) UserAgent() string { return c.underlying.UserAgent() }
 
+// Cookie tries to find a cookie with the given name.
 func (c RequestContext) Cookie(name string) (*http.Cookie, error) {
 	return c.underlying.Cookie(name)
 }
 
+// FormValue is a shortcut to get a value by name inside the request form instead of parsing the whole form.
 func (c RequestContext) FormValue(key string) string {
 	return c.underlying.FormValue(key)
 }
 
+// FormFile is a shortcut to get a file with the given name from multipart form.
 func (c RequestContext) FormFile(key string) (multipart.File, *multipart.FileHeader, error) {
 	return c.underlying.FormFile(key)
 }
 
+// PostFormValue can get a value by the given name from request post-form.
 func (c RequestContext) PostFormValue(key string) string {
 	return c.underlying.PostFormValue(key)
 }
 
+// ParseMultipartForm is the manual approach to parse the request's entity to multipart form.
+// Please read (*http.Request).ParseMultipartForm for more detailed information.
 func (c RequestContext) ParseMultipartForm(maxMemory int64) error {
 	return c.underlying.ParseMultipartForm(maxMemory)
 }
 
+// Form returns all the key-values inside the given request.
+// It calls ParseForm itself.
 func (c RequestContext) Form() (map[string][]string, error) {
 	if err := c.underlying.ParseForm(); err != nil {
 		return nil, err
@@ -74,6 +89,7 @@ func (c RequestContext) Form() (map[string][]string, error) {
 	return c.underlying.Form, nil
 }
 
+// PostForm returns all the key-values inside the given request's post-form.
 func (c RequestContext) PostForm() (map[string][]string, error) {
 	if err := c.underlying.ParseForm(); err != nil {
 		return nil, err
@@ -82,10 +98,12 @@ func (c RequestContext) PostForm() (map[string][]string, error) {
 	}
 }
 
+// AddCookie adds the cookie to the request.
 func (c RequestContext) AddCookie(cookie *http.Cookie) {
 	c.underlying.AddCookie(cookie)
 }
 
+// RequestBody holds the bytes of the request's body entity.
 type RequestBody struct {
 	underlying      io.Reader
 	underlyingBytes []byte
@@ -171,6 +189,8 @@ func (body *RequestBody) fillAndGetBytes() ([]byte, *MalformedRequestContext) {
 	}
 }
 
+// SafeJSONInto receives a pointer to anything, and will try to parse the request bytes into it as JSON.
+// if any error occurs, it is returned immediately by the function.
 func (body *RequestBody) SafeJSONInto(a any) error {
 	bytes, err := body.fillAndGetBytes()
 	if err != nil {
@@ -186,6 +206,8 @@ func (body *RequestBody) SafeJSONInto(a any) error {
 	}
 }
 
+// SafeXMLInto receives a pointer to anything, and will try to parse the request bytes into it as JSON.
+// if any error occurs, it is returned immediately by the function.
 func (body *RequestBody) SafeXMLInto(a any) error {
 	bytes, err := body.fillAndGetBytes()
 	if err != nil {
@@ -201,6 +223,8 @@ func (body *RequestBody) SafeXMLInto(a any) error {
 	}
 }
 
+// JSONInto receives a pointer to anything, and will try to parse the request's JSON entity into it.
+// It panics in case any error happens.
 func (body *RequestBody) JSONInto(a any) {
 	bytes, err := body.fillAndGetBytes()
 	if err != nil {
@@ -211,6 +235,8 @@ func (body *RequestBody) JSONInto(a any) {
 	}
 }
 
+// XMLInto receives a pointer to anything, and will try to parse the request's XML entity into it.
+// It panics in case any error happens.
 func (body *RequestBody) XMLInto(a any) {
 	bytes, err := body.fillAndGetBytes()
 	if err != nil {
