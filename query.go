@@ -14,15 +14,19 @@ var intQueryRegex = regexp.MustCompile("^" + intRegexStr + "$")
 var floatQueryRegex = regexp.MustCompile("^" + floatRegexStr + "$")
 var strQueryRegex = regexp.MustCompile(".*")
 
+// Queries is just a struct holding all the key value pairs of request's query parameters.
+// It also defines some useful receiver functions in order to ease fetching query params.
 type Queries struct {
 	All map[string][]string
 }
 
+// Get looks for the given key in all queries, and returns the value if it exists.
 func (q Queries) Get(key string) ([]string, bool) {
 	values, found := q.All[key]
 	return values, found
 }
 
+// GetOne is used when you're sure if one and only one value exists for the given query.
 func (q Queries) GetOne(key string) (string, bool) {
 	all := q.All[key]
 	if len(all) == 1 {
@@ -32,6 +36,8 @@ func (q Queries) GetOne(key string) (string, bool) {
 	}
 }
 
+// MustGet can be used when you're sure about the existence of a key in query parameters.
+// It panics in it has 0 or more than 1 values.
 func (q Queries) MustGet(key string) string {
 	if value, ok := q.GetOne(key); ok {
 		return value
@@ -40,6 +46,8 @@ func (q Queries) MustGet(key string) string {
 	}
 }
 
+// GetInt is the same as Get, but when you have defined query type to be integer inside the route pattern.
+// In case of any error from finding to converting, the error is returned immediately.
 func (q Queries) GetInt(key string) (int, error) {
 	stringed, ok := q.GetOne(key)
 	if !ok {
@@ -48,6 +56,8 @@ func (q Queries) GetInt(key string) (int, error) {
 	return strconv.Atoi(stringed)
 }
 
+// MustGetInt is the same as MustGet, but when you have defined query type to be integer inside the route pattern.
+// It panics in case of any error from finding to converting the value to int.
 func (q Queries) MustGetInt(key string) int {
 	value, err := q.GetInt(key)
 	if err != nil {
@@ -56,6 +66,8 @@ func (q Queries) MustGetInt(key string) int {
 	return value
 }
 
+// GetFloat is the same as Get, but when you have defined query type to be floating point inside the route pattern.
+// In case of any error from finding to converting, the error is returned immediately.
 func (q Queries) GetFloat(key string) (float64, error) {
 	stringed, ok := q.GetOne(key)
 	if !ok {
@@ -64,6 +76,8 @@ func (q Queries) GetFloat(key string) (float64, error) {
 	return strconv.ParseFloat(stringed, 64)
 }
 
+// MustGetFloat is the same as MustGet, but when you have defined query type to be floating point inside the route pattern.
+// It panics in case of any error from finding to converting the value to float.
 func (q Queries) MustGetFloat(key string) float64 {
 	value, err := q.GetFloat(key)
 	if err != nil {
@@ -126,6 +140,8 @@ func getQueryDefinitionsFromPattern(pattern string) queryDecl {
 	return qs
 }
 
+// QueryToObj receives a pointer to a struct, and tries to parse the query params into it.
+// Please read the documentations [here](https://github.com/AminMal/stgin#query-parameters) for more details.
 func (c RequestContext) QueryToObj(a any) error {
 	if reflect.TypeOf(a).Kind() != reflect.Ptr {
 		return errors.New("passed raw type instead of value pointer to QueryToObj function, please use pointers instead")
