@@ -11,7 +11,7 @@ import (
 var defaultController *Controller = NewController("Server", "")
 
 type Server struct {
-	port              int
+	addr              string
 	Controllers       []*Controller
 	requestListeners  []RequestListener
 	responseListeners []ResponseListener
@@ -239,21 +239,21 @@ func (server *Server) handler() http.Handler {
 }
 
 func (server *Server) Start() error {
-	_ = stginLogger.InfoF("----started server over port: %s%d%s----", colored.YELLOW, server.port, colored.ResetPrevColor)
-	return http.ListenAndServe(fmt.Sprintf(":%d", server.port), server.handler())
+	_ = stginLogger.InfoF("started server over address: %s%s%s", colored.YELLOW, server.addr, colored.ResetPrevColor)
+	return http.ListenAndServe(server.addr, server.handler())
 }
 
-func NewServer(port int) *Server {
+func NewServer(addr string) *Server {
 	return &Server{
-		port:           port,
+		addr:           addr,
 		notFoundAction: notFoundDefaultAction,
 		errorAction:    nil,
 		Controllers:    []*Controller{defaultController},
 	}
 }
 
-func DefaultServer(port int) *Server {
-	server := NewServer(port)
+func DefaultServer(addr string) *Server {
+	server := NewServer(addr)
 	server.AddAPIListeners(WatchAPIs)
 	server.errorAction = errorAction
 	return server
