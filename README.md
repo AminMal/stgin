@@ -297,10 +297,46 @@ Listeners are functions, which can affect the request and response based on the 
 For instance, a `ResponseListener` is a function which receives a response, and returns a response, it can be used when you want to apply something to all the responses in server layer or controller layer (i.e., providing CORS headers).
 There are 3 types of listeners:
 * RequestListener: func(RequestContext) RequestContext [Can be used to mutate request before the controller receives it]
+
+  ```go
+    func AddUserTrackingKey(request stgin.RequestContext) stgin.RequestContext {
+      request.Headers["X-Tracking-Key"] = []string{"some-generated-header"}
+      return request
+    }
+  ```
 * ResponseListener: func(Status) Status [Can be used to add/remove additional information to a raw controller response]
+
+  ```go
+    func AddUserKeyToResponse(response stgin.Status) stgin.Status {
+      return response.WithHeaders(http.Header{"X-Tracking-Key": {"<Some random value>"}}
+    }
+  ```
 * APIListener: func(RequestContext, Status) [Can be used to do stuff like logging, ...]
 
-There are some listeners provided inside the STgin package which can be used inside a server or a controller [API watcher/logger, recovery].
+  ```go
+    func ApiLogger(request stgin.RequestContext, response stgin.Status) {
+      fmt.Println("received", request, "returned", response)
+    }
+  ```
+  There are some listeners provided inside the STgin package which can be used inside a server or a controller (API watcher/logger, recovery, they're used in `stgin.DefaultServer` as well).
+
+  
+# CORS Handling
+Cors handling can be done using server APIs:
+```go
+server.CorsHandler(stgin.CorsHandler{
+	AllowOrigin: "*",
+	AllowHeaders: "*",
+	...
+})
+```
+There are also other ways to do this, like doing it in controller layer:
+```go
+func CorsHandlingAPI(stgin.RequestContext) stgin.Status {...(basically append headers)...}
+controller.AddRoutes(
+    stgin.OPTIONS(stgin.Prefix(""), CorsHandlingAPI),
+)
+```
 
 # Custom Recovery
 An `ErrorHandler` can be provided by the developer, to provide custom error handling behavior.
