@@ -10,6 +10,8 @@ import (
 
 var defaultController *Controller = NewController("Server", "")
 
+// Server is the starting point of stgin applications, which holds the address, controllers, APIs and server-level listeners.
+// Which can be run on the specified address.
 type Server struct {
 	addr              string
 	Controllers       []*Controller
@@ -20,10 +22,12 @@ type Server struct {
 	errorAction       ErrorHandler
 }
 
+// Register appends given controllers to the server.
 func (server *Server) Register(controllers ...*Controller) {
 	server.Controllers = append(server.Controllers, controllers...)
 }
 
+// AddRoutes is an alternative to controller.AddRoutes, which adds the given routes to the server's default controller.
 func (server *Server) AddRoutes(routes ...Route) {
 	for _, c := range server.Controllers {
 		if c == defaultController {
@@ -33,6 +37,7 @@ func (server *Server) AddRoutes(routes ...Route) {
 	}
 }
 
+// CorsHandler function takes the responsibility to handle requests with "OPTIONS" method with the given headers in handler parameter.
 func (server *Server) CorsHandler(handler CorsHandler) {
 	server.AddRoutes(OPTIONS(Prefix(""), func(RequestContext) Status {
 		return Ok(Empty()).WithHeaders(http.Header{
@@ -44,26 +49,36 @@ func (server *Server) CorsHandler(handler CorsHandler) {
 	}))
 }
 
+// AddRequestListeners adds the given request listeners to server-level
+// listeners (which then will be applied to all the incoming requests).
 func (server *Server) AddRequestListeners(listeners ...RequestListener) {
 	server.requestListeners = append(server.requestListeners, listeners...)
 }
 
+// AddResponseListeners adds the given response listeners to server-level
+// listeners (which then will be applied to all the outgoing responses).
 func (server *Server) AddResponseListeners(listeners ...ResponseListener) {
 	server.responseListeners = append(server.responseListeners, listeners...)
 }
 
+// AddAPIListeners adds the given api listeners to server-level
+// listeners (which then will be applied to all the incoming requests and outgoing responses after they're finished).
 func (server *Server) AddAPIListeners(listeners ...APIListener) {
 	server.apiListeners = append(server.apiListeners, listeners...)
 }
 
+// NotFoundAction defines what server should do with the requests that match no routes.
 func (server *Server) NotFoundAction(action API) {
 	server.notFoundAction = action
 }
 
+// SetErrorHandler defines what server should do in case some api panics.
 func (server *Server) SetErrorHandler(action ErrorHandler) {
 	server.errorAction = action
 }
 
+// translate is a function which takes stgin specifications about user defined APIs,
+// and is responsible to translate it into the lower-level base package(currently net/http).
 func translate(
 	api API,
 	requestListeners []RequestListener,
@@ -109,7 +124,9 @@ func translate(
 	}
 }
 
-var WatchAPIs APIListener = func(request RequestContext, status Status) {
+// WatchAPIs is the default request and response logger for stgin.
+// It logs the input request and the output response into the console.
+func WatchAPIs(request RequestContext, status Status) {
 	difference := fmt.Sprint(status.doneAt.Sub(request.receivedAt))
 	statusString := fmt.Sprintf("%v%d%v", getColor(status.StatusCode), status.StatusCode, colored.ResetPrevColor)
 	_ = stginLogger.InfoF("%v -> %v\t\t| %v | %v", request.Method, request.Url, statusString, difference)
@@ -238,11 +255,15 @@ func (server *Server) handler() http.Handler {
 	return mux
 }
 
+// Start executes the server over the specified address.
+// In case any uncaught error or panic happens, and is not recovered in the server's error handler,
+// the error value is returned as a result.
 func (server *Server) Start() error {
 	_ = stginLogger.InfoF("started server over address: %s%s%s", colored.YELLOW, server.addr, colored.ResetPrevColor)
 	return http.ListenAndServe(server.addr, server.handler())
 }
 
+// NewServer returns a pointer to a basic stgin Server.
 func NewServer(addr string) *Server {
 	return &Server{
 		addr:           addr,
@@ -252,6 +273,8 @@ func NewServer(addr string) *Server {
 	}
 }
 
+// DefaultServer is the recommended approach to get a new Server.
+// It includes error handler and api logger by default.
 func DefaultServer(addr string) *Server {
 	server := NewServer(addr)
 	server.AddAPIListeners(WatchAPIs)
