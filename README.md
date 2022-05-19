@@ -55,8 +55,7 @@ import "github.com/AminMal/stgin"
 var Controller *stgin.Controller // exposed to main package
 
 func init() {
-    Controller = stgin.NewController("HealthController")
-    Controller.SetRoutePrefix("/health")
+    Controller = stgin.NewController("HealthController", "/health")
     Controller.AddRoutes(
       stgin.GET("/status", getHealthAPI), // defined in apis.go
       // this route will be interpreted to /health/status
@@ -267,7 +266,7 @@ type AuthInfo struct {
 }
 
 func authenticate(rc stgin.RequestContext) (AuthInfo, bool) {
-    if name, found := rc.GetQuery("user"); !found {
+    if name, found := rc.QueryParams.Get("user"); !found {
     	...
     } else {
         ...
@@ -374,8 +373,8 @@ SomeController.AddRoutes(
 Http push is available if you're using go 1.18 above, and using http 2 as a communication protocol.
 ```go
 // inside api definiction
-if request.Push.IsSupported {
-	pusher := request.Push.Pusher
+if request.HttpPush.IsSupported {
+	pusher := request.HttpPush.Pusher
 	// do stuff with pusher
 }
 ```
