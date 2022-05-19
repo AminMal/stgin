@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var defaultController *Controller = NewController("Default", "")
+var defaultController *Controller = NewController("Server", "")
 
 type Server struct {
 	port              int
@@ -239,7 +239,7 @@ func (server *Server) handler() http.Handler {
 }
 
 func (server *Server) Start() error {
-	_ = stginLogger.InfoF("starting server on port: %s%d%s", colored.YELLOW, server.port, colored.ResetPrevColor)
+	_ = stginLogger.InfoF("----started server over port: %s%d%s----", colored.YELLOW, server.port, colored.ResetPrevColor)
 	return http.ListenAndServe(fmt.Sprintf(":%d", server.port), server.handler())
 }
 
