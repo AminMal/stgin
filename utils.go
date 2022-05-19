@@ -59,7 +59,7 @@ func relevantCallers() []runtime.Frame {
 
 func printStacktrace(firstLine string) {
 	callers := relevantCallers()
-	var stacktrace string
+	var stacktrace = firstLine
 	if firstLine != "" {
 		stacktrace += "\n"
 	}

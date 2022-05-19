@@ -10,6 +10,10 @@ import (
 
 type queryDecl = map[string]string
 
+var intQueryRegex = regexp.MustCompile("^" + intRegexStr + "$")
+var floatQueryRegex = regexp.MustCompile("^" + floatRegexStr + "$")
+var strQueryRegex = regexp.MustCompile(".*")
+
 type Queries struct {
 	All map[string][]string
 }
@@ -71,11 +75,11 @@ func (q Queries) MustGetFloat(key string) float64 {
 func getQueryMatcher(tpe string) *regexp.Regexp {
 	switch tpe {
 	case "int":
-		return intRegex
+		return intQueryRegex
 	case "float":
-		return floatRegex
+		return floatQueryRegex
 	default:
-		return stringRegex
+		return strQueryRegex
 	}
 }
 
@@ -87,9 +91,9 @@ func acceptsQuery(tpe string, value string) bool {
 	}
 }
 
-func acceptsAllQueries(q queryDecl, qs map[string][]string) bool {
+func acceptsAllQueries(declarations queryDecl, qs map[string][]string) bool {
 	var accepts = true
-	for name, tpe := range q {
+	for name, tpe := range declarations {
 		value := qs[name]
 		if len(value) == 0 {
 			accepts = false

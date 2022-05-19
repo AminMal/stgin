@@ -8,8 +8,7 @@ import (
 var stginLogger slogger.ConsoleLogger
 
 var contentTypeKey = "Content-Type"
-var multipleSlashesRegex *regexp.Regexp = regexp.MustCompile("(/{2,})")
-var endsWithSlashRegex = regexp.MustCompile(".*/$")
+var multipleSlashesRegex *regexp.Regexp
 
 const (
 	intRegexStr       = "[0-9]+"
@@ -18,14 +17,7 @@ const (
 	expectQueryParams = "(\\?.*)?"
 )
 
-var intRegex *regexp.Regexp
-var floatRegex *regexp.Regexp
-var stringRegex *regexp.Regexp
-
 func init() {
-	intRegex = regexp.MustCompile(intRegexStr)
-	floatRegex = regexp.MustCompile(floatRegexStr)
-	stringRegex = regexp.MustCompile(stringRegexStr)
-
+	multipleSlashesRegex = regexp.MustCompile("(/{2,})")
 	stginLogger = slogger.NewConsoleLogger("STGIN")
 }

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"strconv"
 	"testing"
 )
 
@@ -87,5 +88,29 @@ func TestAcceptsAllQueries(t *testing.T) {
 
 	if acceptsAllQueries(dummyRoute.expectedQueries, shouldNotAcceptRequest2.URL.Query()) {
 		t.Error("route accepted a request which should not have been accepted")
+	}
+}
+
+func TestAcceptsAllQueries2(t *testing.T) {
+	pattern := "/showall?uid:int&username"
+	dummyRoute := GET(pattern, func(request RequestContext) Status {
+		return Ok(Text(strconv.Itoa(request.QueryParams.MustGetInt(`uid`))))
+	})
+	regex, compileError := getPatternCorrespondingRegex(dummyRoute.Path)
+	if compileError != nil {
+		t.Fatalf("could not compile route pattern: %s", dummyRoute.Path)
+	}
+	dummyRoute.correspondingRegex = regex
+	expectedQueries := queryDecl{
+		"uid":      "int",
+		"username": "string",
+	}
+	if !reflect.DeepEqual(dummyRoute.expectedQueries, expectedQueries) {
+		t.Errorf("query parser could not parse expected queryDecl in route pattern")
+	}
+	shouldNotAccept := "/showall?uid=a23&username=John"
+	shouldNotAcceptReq := mkDummyRequest(shouldNotAccept)
+	if acceptsAllQueries(dummyRoute.expectedQueries, shouldNotAcceptReq.URL.Query()) {
+		t.Fatal("WTFFFF")
 	}
 }
