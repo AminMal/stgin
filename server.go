@@ -89,6 +89,12 @@ func catchTime(timeout time.Duration, timeoutChan chan struct{}) {
 	}
 }
 
+func catchErrInto(errChan chan interface{}) {
+	if err := recover(); err != nil {
+		errChan <- err
+	}
+}
+
 // translate is a function which takes stgin specifications about user defined APIs,
 // and is responsible to translate it into the lower-level base package(currently net/http).
 func translate(
@@ -118,12 +124,7 @@ func translate(
 		go catchTime(timeout, timeoutChannel)
 
 		go func() {
-			defer func() {
-				if err := recover(); err != nil {
-					panicChannel <- err
-				}
-				return
-			}()
+			defer catchErrInto(panicChannel)
 
 			result := api(rc)
 			for _, responseListener := range responseListeners {
