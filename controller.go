@@ -15,6 +15,7 @@ type Controller struct {
 	requestListeners  []RequestListener
 	responseListeners []ResponseListener
 	apiListeners      []APIListener
+	interrupts        []Interrupt
 }
 
 // NewController returns a pointer to a newly created controller with the given name and path prefixes.
@@ -54,6 +55,16 @@ func (controller *Controller) AddAPIListeners(listeners ...APIListener) {
 	controller.apiListeners = append(controller.apiListeners, listeners...)
 }
 
+// SetTimeout registers a timeout interrupt into the controller.
+func (controller *Controller) SetTimeout(timeout time.Duration) {
+	controller.RegisterInterrupts(TimeoutInterrupt(timeout))
+}
+
+// RegisterInterrupts adds the given interrupts to the controller's already existing interrupts.
+func (controller *Controller) RegisterInterrupts(interrupts ...Interrupt) {
+	controller.interrupts = append(controller.interrupts, interrupts...)
+}
+
 // executeInternal is just for testing purposes. This simulates executing an actual http request.
 func (controller *Controller) executeInternal(request *http.Request) Status {
 	var headers http.Header
@@ -86,37 +97,57 @@ func (controller *Controller) executeInternal(request *http.Request) Status {
 		RemoteAddr: request.RemoteAddr,
 	}
 
+	interruptChannel := make(chan *Status, 1)
+	successfulOperationChannel := make(chan *Status, 1)
+	// panicChannel should not be defined here, since error handling is on server layer
+
 	for _, modifier := range controller.requestListeners {
 		rc = modifier(rc)
 	}
 
+	for _, interrupt := range controller.interrupts {
+		go interrupt.TriggerFor(rc, interruptChannel)
+	}
+
 	var done bool
-	var result Status
-	for _, route := range controller.routes {
-		matches, pathParams := route.acceptsAndPathParams(request)
-		if matches && acceptsAllQueries(route.expectedQueries, request.URL.Query()) {
-			rc.PathParams = PathParams{pathParams}
-			done = true
-			result = route.Action(rc)
-			break
+	go func() {
+		var result Status
+		for _, route := range controller.routes {
+			matches, pathParams := route.acceptsAndPathParams(request)
+			if matches && acceptsAllQueries(route.expectedQueries, request.URL.Query()) {
+				rc.PathParams = PathParams{pathParams}
+				done = true
+				result = route.Action(rc)
+				break
+			}
 		}
-	}
-	if !done {
-		result = NotFound(Json(&generalFailureMessage{
-			StatusCode: 404,
-			Path:       request.URL.Path,
-			Message:    "not found",
-			Method:     request.Method,
-		}))
-	}
+		if !done {
+			result = NotFound(Json(&generalFailureMessage{
+				StatusCode: 404,
+				Path:       request.URL.Path,
+				Message:    "not found",
+				Method:     request.Method,
+			}))
+		}
 
-	for _, modifier := range controller.responseListeners {
-		result = modifier(result)
-	}
+		for _, modifier := range controller.responseListeners {
+			result = modifier(result)
+		}
+		successfulOperationChannel <- &result
+	}()
 
-	for _, watcher := range controller.apiListeners {
-		watcher(rc, result)
+	select {
+	case interrupted := <-interruptChannel:
+		result := *interrupted
+		for _, watcher := range controller.apiListeners {
+			go watcher(rc, result)
+		}
+		return result
+	case normal := <-successfulOperationChannel:
+		result := *normal
+		for _, watcher := range controller.apiListeners {
+			go watcher(rc, result)
+		}
+		return result
 	}
-
-	return result
 }
