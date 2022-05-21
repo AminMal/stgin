@@ -337,6 +337,11 @@ controller.AddRoutes(
 )
 ```
 
+# Timeout
+You can adjust server request timeout using `server.SetTimeout`,
+this way if the request processing takes longer than the specified timeout,
+the server will automatically abort the request and complete with a `408 request timed out` response.
+
 # Custom Recovery
 An `ErrorHandler` can be provided by the developer, to provide custom error handling behavior.
 Definition of an `ErrorHandler` function is pretty straight forward, you just define a function which takes the request and the error, and decides what to return as the status.
