@@ -56,6 +56,7 @@ func TestControllerListeners(t *testing.T) {
 	if res.StatusCode != 201 {
 		t.Fatalf("response listener could not mutate api response")
 	}
+	time.Sleep(200 * time.Millisecond) // since api listeners are now executed async, we should wait a little :)
 	expectedLog := fmt.Sprintf("request with path %v completed with status %d", "/test/ping", 201)
 	if apiLogToTerminalString != expectedLog {
 		t.Fatalf("api listener did not work properly")
