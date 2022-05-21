@@ -150,7 +150,11 @@ func translate(
 			}
 
 		case <-timeoutChannel:
-			contextTimeoutResponse.complete(request, writer)
+			result := contextTimeoutResponse()
+			result.complete(request, writer)
+			for _, apiListener := range apiListeners {
+				go apiListener(rc, result)
+			}
 		}
 	}
 }
@@ -159,8 +163,13 @@ func translate(
 // It logs the input request and the output response into the console.
 func WatchAPIs(request RequestContext, status Status) {
 	difference := fmt.Sprint(status.doneAt.Sub(request.receivedAt))
+	if status.StatusCode == http.StatusRequestTimeout {
+		_ = stginLogger.InfoF("\"%s -> %s\\t\\t|%s request timed out after %s%s",
+			request.Method, request.Url, colored.YELLOW, difference, colored.ResetPrevColor,
+		)
+	}
 	statusString := fmt.Sprintf("%v%d%v", getColor(status.StatusCode), status.StatusCode, colored.ResetPrevColor)
-	_ = stginLogger.InfoF("%v -> %v\t\t| %v | %v", request.Method, request.Url, statusString, difference)
+	_ = stginLogger.InfoF("%s -> %s\t\t| %v | %v", request.Method, request.Url, statusString, difference)
 }
 
 type generalFailureMessage struct {
@@ -198,9 +207,12 @@ var errorAction ErrorHandler = func(request RequestContext, err any) Status {
 	}))
 }
 
-var contextTimeoutResponse Status = Status{
-	StatusCode: http.StatusRequestTimeout,
-	Entity:     Text("request timed out"),
+func contextTimeoutResponse() Status {
+	return Status{
+		StatusCode: http.StatusRequestTimeout,
+		Entity:     Text("request timed out"),
+		doneAt:     time.Now(),
+	}
 }
 
 type apiHandler struct {
