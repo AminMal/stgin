@@ -21,7 +21,7 @@ var getFileFormatRegex = regexp.MustCompile(".*\\.(.+)$")
 	ResponseEntity is an interface representing anything that can be sent through http response body.
 	Structs implementing ResponseEntity must have a content type (which is written directly in the response),
 	And also a function which can provide entity bytes, or any error if exists.
-	So for instance if you wanted to define a custom PDF ResponseEntity,
+	So for instance if you wanted to define a custom PDF ResponseEntity (which is already supported using File function),
 
 	type PDF struct {
         filepath string
