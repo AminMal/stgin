@@ -164,9 +164,10 @@ func translate(
 func WatchAPIs(request RequestContext, status Status) {
 	difference := fmt.Sprint(status.doneAt.Sub(request.receivedAt))
 	if status.StatusCode == http.StatusRequestTimeout {
-		_ = stginLogger.InfoF("\"%s -> %s\t\t|%s request timed out after %s%s",
+		_ = stginLogger.InfoF("%s -> %s\t\t|%s request timed out after %s%s",
 			request.Method, request.Url, colored.YELLOW, difference, colored.ResetPrevColor,
 		)
+		return
 	}
 	statusString := fmt.Sprintf("%v%d%v", getColor(status.StatusCode), status.StatusCode, colored.ResetPrevColor)
 	_ = stginLogger.InfoF("%s -> %s\t\t| %v | %v", request.Method, request.Url, statusString, difference)
