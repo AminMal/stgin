@@ -20,7 +20,7 @@ type Server struct {
 	apiListeners      []APIListener
 	notFoundAction    API
 	errorAction       ErrorHandler
-	timeout           time.Duration
+	interrupts        []Interrupt
 }
 
 // Register appends given controllers to the server.
@@ -78,20 +78,25 @@ func (server *Server) SetErrorHandler(action ErrorHandler) {
 	server.errorAction = action
 }
 
+// SetTimeout registers a timeout interrupt to the server
 func (server *Server) SetTimeout(dur time.Duration) {
-	server.timeout = dur
+	server.RegisterInterrupts(TimeoutInterrupt(dur))
 }
 
-func catchTime(timeout time.Duration, timeoutChan chan struct{}) {
-	if timeout > 0 {
-		<-time.After(timeout)
-		timeoutChan <- struct{}{}
-	}
+// RegisterInterrupts adds the given interrupts to the server's already existing interrupts
+func (server *Server) RegisterInterrupts(interrupts ...Interrupt) {
+	server.interrupts = append(server.interrupts, interrupts...)
 }
 
 func catchErrInto(errChan chan interface{}) {
 	if err := recover(); err != nil {
 		errChan <- err
+	}
+}
+
+func executeInterrupts(interrupts []Interrupt, request RequestContext, completeWith chan *Status) {
+	for _, interrupt := range interrupts {
+		go interrupt.TriggerFor(request, completeWith)
 	}
 }
 
@@ -104,11 +109,11 @@ func translate(
 	apiListeners []APIListener,
 	recovery ErrorHandler,
 	pathParams Params,
-	timeout time.Duration,
+	interrupts []Interrupt,
 ) http.HandlerFunc {
 	panicChannel := make(chan interface{}, 1)
 	successfulResultChannel := make(chan *Status, 1)
-	timeoutChannel := make(chan struct{}, 1)
+	interruptChannel := make(chan *Status, 1)
 
 	return func(writer http.ResponseWriter, request *http.Request) {
 		queries := make(map[string][]string, 10)
@@ -121,7 +126,7 @@ func translate(
 		for _, requestListener := range requestListeners {
 			rc = requestListener(rc)
 		}
-		go catchTime(timeout, timeoutChannel)
+		go executeInterrupts(interrupts, rc, interruptChannel)
 
 		go func() {
 			defer catchErrInto(panicChannel)
@@ -135,6 +140,12 @@ func translate(
 		}()
 
 		select {
+		case interrupt := <-interruptChannel:
+			result := *interrupt
+			interrupt.complete(request, writer)
+			for _, apiListener := range apiListeners {
+				apiListener(rc, result)
+			}
 		case success := <-successfulResultChannel:
 			success.complete(request, writer)
 
@@ -148,13 +159,6 @@ func translate(
 			} else {
 				status := recovery(rc, err)
 				write(status, writer)
-			}
-
-		case <-timeoutChannel:
-			result := contextTimeoutResponse()
-			result.complete(request, writer)
-			for _, apiListener := range apiListeners {
-				go apiListener(rc, result)
 			}
 		}
 	}
@@ -209,14 +213,6 @@ var errorAction ErrorHandler = func(request RequestContext, err any) Status {
 	}))
 }
 
-func contextTimeoutResponse() Status {
-	return Status{
-		StatusCode: http.StatusRequestTimeout,
-		Entity:     Text("request timed out"),
-		doneAt:     time.Now(),
-	}
-}
-
 type apiHandler struct {
 	methodWithRoutes map[string][]Route // to optimize request matching time
 	server           *Server
@@ -230,6 +226,7 @@ func (handler apiHandler) ServeHTTP(writer http.ResponseWriter, request *http.Re
 			requestListeners := append(handler.server.requestListeners, route.controller.requestListeners...)
 			responseListeners := append(handler.server.responseListeners, route.controller.responseListeners...)
 			apiListeners := append(handler.server.apiListeners, route.controller.apiListeners...)
+			interrupts := append(handler.server.interrupts, route.controller.interrupts...)
 			handlerFunc := translate(
 				route.Action,
 				requestListeners,
@@ -237,7 +234,7 @@ func (handler apiHandler) ServeHTTP(writer http.ResponseWriter, request *http.Re
 				apiListeners,
 				handler.server.errorAction,
 				pathParams,
-				handler.server.timeout,
+				interrupts,
 			)
 			handlerFunc(writer, request)
 			done = true
@@ -321,7 +318,6 @@ func NewServer(addr string) *Server {
 		notFoundAction: notFoundDefaultAction,
 		errorAction:    nil,
 		Controllers:    []*Controller{defaultController},
-		timeout:        -time.Millisecond,
 	}
 }
 
