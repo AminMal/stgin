@@ -61,13 +61,13 @@ func write(status Status, rw http.ResponseWriter) {
 	}
 }
 
-func (status Status) complete(request *http.Request, writer http.ResponseWriter) {
+func (status *Status) complete(request *http.Request, writer http.ResponseWriter) {
 	if status.isRedirection() {
 		location, _ := status.Entity.Bytes()
 		http.Redirect(writer, request, string(location), status.StatusCode)
 		return
 	} else {
-		write(status, writer)
+		write(*status, writer)
 	}
 }
 

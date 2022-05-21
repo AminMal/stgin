@@ -20,6 +20,7 @@ type Server struct {
 	apiListeners      []APIListener
 	notFoundAction    API
 	errorAction       ErrorHandler
+	timeout           time.Duration
 }
 
 // Register appends given controllers to the server.
@@ -77,6 +78,17 @@ func (server *Server) SetErrorHandler(action ErrorHandler) {
 	server.errorAction = action
 }
 
+func (server *Server) SetTimeout(dur time.Duration) {
+	server.timeout = dur
+}
+
+func catchTime(timeout time.Duration, timeoutChan chan struct{}) {
+	if timeout > 0 {
+		<-time.After(timeout)
+		timeoutChan <- struct{}{}
+	}
+}
+
 // translate is a function which takes stgin specifications about user defined APIs,
 // and is responsible to translate it into the lower-level base package(currently net/http).
 func translate(
@@ -86,7 +98,12 @@ func translate(
 	apiListeners []APIListener,
 	recovery ErrorHandler,
 	pathParams Params,
+	timeout time.Duration,
 ) http.HandlerFunc {
+	panicChannel := make(chan interface{}, 1)
+	successfulResultChannel := make(chan *Status, 1)
+	timeoutChannel := make(chan struct{}, 1)
+
 	return func(writer http.ResponseWriter, request *http.Request) {
 		queries := make(map[string][]string, 10)
 		for key, value := range request.URL.Query() {
@@ -98,28 +115,42 @@ func translate(
 		for _, requestListener := range requestListeners {
 			rc = requestListener(rc)
 		}
-		defer func() {
-			if err := recover(); err != nil {
-				if recovery == nil {
-					panic(err)
-				} else {
-					status := recovery(rc, err)
-					write(status, writer)
+		go catchTime(timeout, timeoutChannel)
+
+		go func() {
+			defer func() {
+				if err := recover(); err != nil {
+					panicChannel <- err
 				}
+				return
+			}()
+
+			result := api(rc)
+			for _, responseListener := range responseListeners {
+				result = responseListener(result)
 			}
+			result.doneAt = time.Now()
+			successfulResultChannel <- &result
 		}()
 
-		result := api(rc)
-		for _, responseListener := range responseListeners {
-			result = responseListener(result)
-		}
-		now := time.Now()
-		result.doneAt = now
+		select {
+		case success := <-successfulResultChannel:
+			success.complete(request, writer)
 
-		result.complete(request, writer)
+			for _, apiListener := range apiListeners {
+				go apiListener(rc, *success)
+			}
 
-		for _, apiListener := range apiListeners {
-			go apiListener(rc, result)
+		case err := <-panicChannel:
+			if recovery == nil {
+				panic(err)
+			} else {
+				status := recovery(rc, err)
+				write(status, writer)
+			}
+
+		case <-timeoutChannel:
+			contextTimeoutResponse.complete(request, writer)
 		}
 	}
 }
@@ -167,6 +198,11 @@ var errorAction ErrorHandler = func(request RequestContext, err any) Status {
 	}))
 }
 
+var contextTimeoutResponse Status = Status{
+	StatusCode: http.StatusRequestTimeout,
+	Entity:     Text("request timed out"),
+}
+
 type apiHandler struct {
 	methodWithRoutes map[string][]Route // to optimize request matching time
 	server           *Server
@@ -187,6 +223,7 @@ func (handler apiHandler) ServeHTTP(writer http.ResponseWriter, request *http.Re
 				apiListeners,
 				handler.server.errorAction,
 				pathParams,
+				handler.server.timeout,
 			)
 			handlerFunc(writer, request)
 			done = true
@@ -270,6 +307,7 @@ func NewServer(addr string) *Server {
 		notFoundAction: notFoundDefaultAction,
 		errorAction:    nil,
 		Controllers:    []*Controller{defaultController},
+		timeout:        -time.Millisecond,
 	}
 }
 

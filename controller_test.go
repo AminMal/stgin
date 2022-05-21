@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+	"time"
 )
 
 type msg struct {
@@ -66,6 +67,30 @@ func TestControllerListeners(t *testing.T) {
 
 	if res.Entity.ContentType() != "application/json" {
 		t.Fatal("content type is not as expected")
+	}
+}
+
+func TestController_Timeout(t *testing.T) {
+	controller := NewController("Timeout controller", "")
+	timeConsumingTask := func(request RequestContext) Status {
+		time.Sleep(2 * time.Second)
+		return Ok(Empty())
+	}
+	timeout := 500 * time.Millisecond
+	controller.AddRoutes(GET("/timeout", timeConsumingTask))
+	executionChannel := make(chan *Status, 1)
+	timeoutChannel := make(chan struct{}, 1)
+	go catchTime(timeout, timeoutChannel)
+	go func() {
+		result := controller.executeInternal(mkDummyRequest("/timeout"))
+		executionChannel <- &result
+	}()
+
+	select {
+	case _ = <-executionChannel:
+		t.Fatal("timeout did not work")
+	case <-timeoutChannel:
+		fmt.Println("timeout encountered (correct)")
 	}
 }
 
