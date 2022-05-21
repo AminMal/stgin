@@ -142,7 +142,7 @@ func getQueryDefinitionsFromPattern(pattern string) queryDecl {
 
 // QueryToObj receives a pointer to a struct, and tries to parse the query params into it.
 // Please read the documentations [here](https://github.com/AminMal/stgin#query-parameters) for more details.
-func (c RequestContext) QueryToObj(a any) error {
+func (request RequestContext) QueryToObj(a any) error {
 	if reflect.TypeOf(a).Kind() != reflect.Ptr {
 		return errors.New("passed raw type instead of value pointer to QueryToObj function, please use pointers instead")
 	}
@@ -161,7 +161,7 @@ func (c RequestContext) QueryToObj(a any) error {
 			tags := strings.SplitN(queryTag, ",", -1)
 			queryName := tags[0]
 			//otherTags := tags[1:]  WIP
-			query, found := c.QueryParams.GetOne(queryName)
+			query, found := request.QueryParams.GetOne(queryName)
 			valueField := value.Field(i)
 			if found {
 				switch valueField.Kind() {

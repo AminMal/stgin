@@ -20,6 +20,8 @@ type Status struct {
 	doneAt     time.Time
 }
 
+func (status Status) DoneAt() time.Time { return status.doneAt }
+
 func (status Status) isRedirection() bool {
 	return status.StatusCode >= 300 && status.StatusCode < 400
 }

@@ -28,6 +28,10 @@ type RequestContext struct {
 	HttpPush      Push
 }
 
+func (request RequestContext) ReceivedAt() time.Time {
+	return request.receivedAt
+}
+
 // Push is a struct that represents both the ability, and the functionality of http push inside this request.
 type Push struct {
 	IsSupported bool
@@ -44,63 +48,63 @@ func (p Push) Pusher() http.Pusher {
 }
 
 // Cookies returns the cookies that are attached to the request.
-func (c RequestContext) Cookies() []*http.Cookie {
-	return c.underlying.Cookies()
+func (request RequestContext) Cookies() []*http.Cookie {
+	return request.underlying.Cookies()
 }
 
 // Referer returns the value of referer header in http request, returns empty string if it does not exist.
-func (c RequestContext) Referer() string { return c.underlying.Referer() }
+func (request RequestContext) Referer() string { return request.underlying.Referer() }
 
 // UserAgent returns the value of request's user agent, returns empty string if it does not exist.
-func (c RequestContext) UserAgent() string { return c.underlying.UserAgent() }
+func (request RequestContext) UserAgent() string { return request.underlying.UserAgent() }
 
 // Cookie tries to find a cookie with the given name.
-func (c RequestContext) Cookie(name string) (*http.Cookie, error) {
-	return c.underlying.Cookie(name)
+func (request RequestContext) Cookie(name string) (*http.Cookie, error) {
+	return request.underlying.Cookie(name)
 }
 
 // FormValue is a shortcut to get a value by name inside the request form instead of parsing the whole form.
-func (c RequestContext) FormValue(key string) string {
-	return c.underlying.FormValue(key)
+func (request RequestContext) FormValue(key string) string {
+	return request.underlying.FormValue(key)
 }
 
 // FormFile is a shortcut to get a file with the given name from multipart form.
-func (c RequestContext) FormFile(key string) (multipart.File, *multipart.FileHeader, error) {
-	return c.underlying.FormFile(key)
+func (request RequestContext) FormFile(key string) (multipart.File, *multipart.FileHeader, error) {
+	return request.underlying.FormFile(key)
 }
 
 // PostFormValue can get a value by the given name from request post-form.
-func (c RequestContext) PostFormValue(key string) string {
-	return c.underlying.PostFormValue(key)
+func (request RequestContext) PostFormValue(key string) string {
+	return request.underlying.PostFormValue(key)
 }
 
 // ParseMultipartForm is the manual approach to parse the request's entity to multipart form.
 // Please read (*http.Request).ParseMultipartForm for more detailed information.
-func (c RequestContext) ParseMultipartForm(maxMemory int64) error {
-	return c.underlying.ParseMultipartForm(maxMemory)
+func (request RequestContext) ParseMultipartForm(maxMemory int64) error {
+	return request.underlying.ParseMultipartForm(maxMemory)
 }
 
 // Form returns all the key-values inside the given request.
 // It calls ParseForm itself.
-func (c RequestContext) Form() (map[string][]string, error) {
-	if err := c.underlying.ParseForm(); err != nil {
+func (request RequestContext) Form() (map[string][]string, error) {
+	if err := request.underlying.ParseForm(); err != nil {
 		return nil, err
 	}
-	return c.underlying.Form, nil
+	return request.underlying.Form, nil
 }
 
 // PostForm returns all the key-values inside the given request's post-form.
-func (c RequestContext) PostForm() (map[string][]string, error) {
-	if err := c.underlying.ParseForm(); err != nil {
+func (request RequestContext) PostForm() (map[string][]string, error) {
+	if err := request.underlying.ParseForm(); err != nil {
 		return nil, err
 	} else {
-		return c.underlying.PostForm, nil
+		return request.underlying.PostForm, nil
 	}
 }
 
 // AddCookie adds the cookie to the request.
-func (c RequestContext) AddCookie(cookie *http.Cookie) {
-	c.underlying.AddCookie(cookie)
+func (request RequestContext) AddCookie(cookie *http.Cookie) {
+	request.underlying.AddCookie(cookie)
 }
 
 // RequestBody holds the bytes of the request's body entity.
