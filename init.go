@@ -11,7 +11,7 @@ var contentTypeKey = "Content-Type"
 var multipleSlashesRegex *regexp.Regexp
 
 const (
-	intRegexStr       = "[0-9]+"
+	intRegexStr       = "[-]?[0-9]+"
 	floatRegexStr     = "[+\\-]?(?:(?:0|[1-9]\\d*)(?:\\.\\d*)?|\\.\\d+)(?:\\d[eE][+\\-]?\\d+)?"
 	stringRegexStr    = "[a-zA-Z0-9_!@#$%^&*()+=-]+"
 	expectQueryParams = "(\\?.*)?"
