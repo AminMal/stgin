@@ -6,6 +6,7 @@ import (
 	"github.com/AminMal/slogger/colored"
 	"net/http"
 	"time"
+	"mime/multipart"
 )
 
 var defaultController *Controller = NewController("Server", "")
@@ -328,4 +329,104 @@ func DefaultServer(addr string) *Server {
 	server.AddAPIListeners(WatchAPIs)
 	server.errorAction = errorAction
 	return server
+}
+
+
+func (server *Server) executeInternal(request *http.Request) Status {
+	var headers http.Header
+	if request.Header == nil {
+		headers = emptyHeaders
+	} else {
+		headers = request.Header
+	}
+
+	rc := RequestContext{
+		Url:         request.URL.Path,
+		QueryParams: Queries{request.URL.Query()},
+		PathParams:  PathParams{nil},
+		Headers:     headers,
+		Body: func() *RequestBody {
+			return &RequestBody{
+				underlying:      nil,
+				underlyingBytes: []byte{},
+				hasFilledBytes:  false,
+			}
+		},
+		receivedAt:    time.Now(),
+		Method:        request.Method,
+		ContentLength: request.ContentLength,
+		Host:          request.Host,
+		MultipartForm: func() *multipart.Form {
+			return request.MultipartForm
+		},
+		Scheme:     request.URL.Scheme,
+		RemoteAddr: request.RemoteAddr,
+	}
+
+	interruptChannel := make(chan *Status, 1)
+	successfulOperationChannel := make(chan *Status, 1)
+	// panicChannel should not be defined here, since error handling is on server layer
+	requestListeners := server.requestListeners
+	responseListeners := server.responseListeners
+	apiListeners := server.apiListeners
+
+	for _, c := range server.Controllers {
+		requestListeners = append(requestListeners, c.requestListeners...)
+		responseListeners = append(responseListeners, c.responseListeners...)
+		apiListeners = append(apiListeners, c.apiListeners...)
+	}
+
+	for _, modifier := range server.requestListeners {
+		rc = modifier(rc)
+	}
+
+	for _, interrupt := range server.interrupts {
+		go interrupt.TriggerFor(rc, interruptChannel)
+	}
+
+	var done bool
+	go func() {
+		var result Status
+		for _, c := range server.Controllers {
+			if done { break }
+			for _, route := range c.routes {
+				matches, pathParams := route.acceptsAndPathParams(request)
+				if matches && acceptsAllQueries(route.expectedQueries, request.URL.Query()) {
+					rc.PathParams = PathParams{pathParams}
+					done = true
+					result = route.Action(rc)
+					break
+				}
+			}
+		}
+		if !done {
+			result = NotFound(Json(&generalFailureMessage{
+				StatusCode: 404,
+				Path:       request.URL.Path,
+				Message:    "not found",
+				Method:     request.Method,
+			}))
+		}
+
+		for _, modifier := range responseListeners {
+			result = modifier(result)
+		}
+		successfulOperationChannel <- &result
+	}()
+
+	select {
+	case interrupted := <-interruptChannel:
+		result := *interrupted
+		
+		for _, watcher := range apiListeners {
+			go watcher(rc, result)
+		}
+		return result
+	case normal := <-successfulOperationChannel:
+		result := *normal
+		for _, watcher := range apiListeners {
+			go watcher(rc, result)
+		}
+		return result
+	}
 }

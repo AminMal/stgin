@@ -48,7 +48,7 @@ func write(status Status, rw http.ResponseWriter) {
 	}
 	for key, values := range status.Headers {
 		for _, value := range values {
-			rw.Header().Set(key, value)
+			rw.Header().Add(key, value)
 		}
 	}
 	for _, cookie := range status.cookies {
