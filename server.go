@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 	"mime/multipart"
+	"strings"
 )
 
 var defaultController *Controller = NewController("Server", "")
@@ -43,10 +44,10 @@ func (server *Server) AddRoutes(routes ...Route) {
 func (server *Server) CorsHandler(handler CorsHandler) {
 	server.AddRoutes(OPTIONS(Prefix(""), func(RequestContext) Status {
 		return Ok(Empty()).WithHeaders(http.Header{
-			"Access-Control-Allow-Origin":      handler.AllowOrigin,
-			"Access-Control-Allow-Credentials": handler.AllowCredentials,
-			"Access-Control-Allow-Headers":     handler.AllowHeaders,
-			"Access-Control-Allow-Methods":     handler.AllowMethods,
+			"Access-Control-Allow-Origin":      []string{strings.Join(handler.AllowOrigin, ", ")},
+			"Access-Control-Allow-Credentials": []string{strings.Join(handler.AllowCredentials, ", ")},
+			"Access-Control-Allow-Headers":     []string{strings.Join(handler.AllowHeaders, ", ")},
+			"Access-Control-Allow-Methods":     []string{strings.Join(handler.AllowMethods, ", ")},
 		})
 	}))
 }
