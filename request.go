@@ -24,7 +24,7 @@ type RequestContext struct {
 	MultipartForm func() *multipart.Form
 	Scheme        string
 	RemoteAddr    string
-	underlying    *http.Request
+	Underlying    *http.Request
 	HttpPush      Push
 }
 
@@ -49,62 +49,62 @@ func (p Push) Pusher() http.Pusher {
 
 // Cookies returns the cookies that are attached to the request.
 func (request RequestContext) Cookies() []*http.Cookie {
-	return request.underlying.Cookies()
+	return request.Underlying.Cookies()
 }
 
 // Referer returns the value of referer header in http request, returns empty string if it does not exist.
-func (request RequestContext) Referer() string { return request.underlying.Referer() }
+func (request RequestContext) Referer() string { return request.Underlying.Referer() }
 
 // UserAgent returns the value of request's user agent, returns empty string if it does not exist.
-func (request RequestContext) UserAgent() string { return request.underlying.UserAgent() }
+func (request RequestContext) UserAgent() string { return request.Underlying.UserAgent() }
 
 // Cookie tries to find a cookie with the given name.
 func (request RequestContext) Cookie(name string) (*http.Cookie, error) {
-	return request.underlying.Cookie(name)
+	return request.Underlying.Cookie(name)
 }
 
 // FormValue is a shortcut to get a value by name inside the request form instead of parsing the whole form.
 func (request RequestContext) FormValue(key string) string {
-	return request.underlying.FormValue(key)
+	return request.Underlying.FormValue(key)
 }
 
 // FormFile is a shortcut to get a file with the given name from multipart form.
 func (request RequestContext) FormFile(key string) (multipart.File, *multipart.FileHeader, error) {
-	return request.underlying.FormFile(key)
+	return request.Underlying.FormFile(key)
 }
 
 // PostFormValue can get a value by the given name from request post-form.
 func (request RequestContext) PostFormValue(key string) string {
-	return request.underlying.PostFormValue(key)
+	return request.Underlying.PostFormValue(key)
 }
 
 // ParseMultipartForm is the manual approach to parse the request's entity to multipart form.
 // Please read (*http.Request).ParseMultipartForm for more detailed information.
 func (request RequestContext) ParseMultipartForm(maxMemory int64) error {
-	return request.underlying.ParseMultipartForm(maxMemory)
+	return request.Underlying.ParseMultipartForm(maxMemory)
 }
 
 // Form returns all the key-values inside the given request.
 // It calls ParseForm itself.
 func (request RequestContext) Form() (map[string][]string, error) {
-	if err := request.underlying.ParseForm(); err != nil {
+	if err := request.Underlying.ParseForm(); err != nil {
 		return nil, err
 	}
-	return request.underlying.Form, nil
+	return request.Underlying.Form, nil
 }
 
 // PostForm returns all the key-values inside the given request's post-form.
 func (request RequestContext) PostForm() (map[string][]string, error) {
-	if err := request.underlying.ParseForm(); err != nil {
+	if err := request.Underlying.ParseForm(); err != nil {
 		return nil, err
 	} else {
-		return request.underlying.PostForm, nil
+		return request.Underlying.PostForm, nil
 	}
 }
 
 // AddCookie adds the cookie to the request.
 func (request RequestContext) AddCookie(cookie *http.Cookie) {
-	request.underlying.AddCookie(cookie)
+	request.Underlying.AddCookie(cookie)
 }
 
 // RequestBody holds the bytes of the request's body entity.
@@ -171,7 +171,7 @@ func requestContextFromHttpRequest(request *http.Request, writer http.ResponseWr
 		},
 		Scheme:     request.URL.Scheme,
 		RemoteAddr: request.RemoteAddr,
-		underlying: request,
+		Underlying: request,
 		HttpPush: Push{
 			IsSupported: isSupported,
 			pusher:      pusher,
