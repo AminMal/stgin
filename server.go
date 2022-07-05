@@ -284,7 +284,7 @@ func bindStaticDirLog(routePath string, dir string) string {
 	)
 }
 
-func (server *Server) handler() http.Handler {
+func (server *Server) HttpHandler() http.Handler {
 	mux := http.NewServeMux()
 	methodWithRoutes := make(map[string][]Route)
 	for _, controller := range server.Controllers {
@@ -310,7 +310,7 @@ func (server *Server) handler() http.Handler {
 // the error value is returned as a result.
 func (server *Server) Start() error {
 	_ = stginLogger.InfoF("started server over address: %s%s%s", colored.YELLOW, server.addr, colored.ResetPrevColor)
-	return http.ListenAndServe(server.addr, server.handler())
+	return http.ListenAndServe(server.addr, server.HttpHandler())
 }
 
 // NewServer returns a pointer to a basic stgin Server.
