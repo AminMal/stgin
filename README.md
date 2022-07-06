@@ -1,15 +1,16 @@
+
 # STGIN
 
-STgin is a functional rest framework that provides easy APIs in order to maintain your application RESTful API server.
+stgin is a functional RESTful API server framework that provides easy APIs in order to maintain your application RESTful API server.
 
 # Installation
-You can use the following command to add stgin in your application.
+You can use the following command to add stgin into your application.
 ```
 go get github.com/AminMal/stgin
 ```
 
 # Quick Start
-STgin concentrates a lot about making a well-structured application.
+stgin concentrates a lot about making a well-structured application.
 Let's take a look at the following application structure, this is just a part of a simple application (health checking part).
 ```
   /project
@@ -30,8 +31,8 @@ package health
 
 import "github.com/AminMal/stgin"
 // #recommended
-var getHealthAPI stgin.API = func(request stgin.RequestContext) stgin.Status {
-	healthResponse := getHealth() // some method implemented in package
+func getHealthAPI(request stgin.RequestContext) stgin.Status {
+    healthResponse := getHealth() // some method implemented in package
     // model is defined earlier in models.go
     if healthResponse.ok {
         return stgin.Ok(stgin.Json(&healthResponse))
@@ -39,12 +40,14 @@ var getHealthAPI stgin.API = func(request stgin.RequestContext) stgin.Status {
         return stgin.InternalServerError(stgin.Json(&healthResponse))
     }
 }
+// you can also define APIs as variable:
+// var someAPI stgin.API = func(request stgin.RequestContext) stgin.Status {...}
 
-// you can also use func getHealthAPI(...) ... #recommended
+// but using functions is more convenient and is recommended
 // or inline the implementation in route definition #not recommended
 
 ```
-Fine for now, now let's create the controller in `/health/init.go`. It's better to use init to initialize controllers and apis.
+Fine for now, let's create the controller in `/health/init.go`. It's better to use init to initialize controllers and apis.
 ```go
 // health/init.go file
 
@@ -68,13 +71,15 @@ Now in the root directory of the project, let's open `init.go` file.
 package main
 
 import "github.com/AminMal/stgin"
+import "fmt"
 
 var server *stgin.Server
 
 func init() {
-	portNo := 9000 // read from config or just bind manually
-	server = stgin.DefaultServer(portNo) // default server has default logger and error handler
-	server.Register(health.Controller)
+        portNo := 9000
+        server = stgin.DefaultServer(fmt.Sprintf(":%d", portNo))
+        // default server included default logger and error handler
+        server.Register(health.Controller)
 }
 ```
 Almost done, let's just run the server (main.go).
@@ -84,7 +89,7 @@ package main
 import "log"
 
 func main() {
-	log.Fatal(server.Start()) // all done
+        log.Fatal(server.Start()) // all done
 }
 ```
 Your application will be up and running.
@@ -93,27 +98,27 @@ Another approach to define routes is route builder. You might want to use some m
 You can use:
 ```go
 stgin.OnPattern("/your/path/$path_param").WithMethod("something").Do(
-	func(req stgin.RequestContext) stgin.Status{...},
+        func(req stgin.RequestContext) stgin.Status{...},
 )
 ```
 
-A comparison between STgin and go-gin, writing a simple API:
+A comparison between stgin and gin-gonic, writing a simple API:
 ```go
 // Given response type as
 type HealthCheckResponse struct {
-	DBConnection    bool    `json:"database_connection"`
-	Message         string  `json:"message"`
+        DBConnection    bool    `json:"database_connection"`
+        Message         string  `json:"message"`
 }
 // and request type as
 type HealthCheckRequest struct {
-	Whatever        string   `json:"whatever"`
+        Whatever        string   `json:"whatever"`
 }
 ```
-***STgin implementation:***
+***stgin implementation:***
 ```go
 health := stgin.POST("/health", func(request stgin.RequestContext) stgin.Status {
     var reqBody HealthCheckRequest
-    request.Body.JSONInto(&reqBody)
+    request.Body().JSONInto(&reqBody)
     // do something with reqBody
     var response HealthCheckResponse = GetHealth()
     if response.DBConnection {
@@ -123,7 +128,7 @@ health := stgin.POST("/health", func(request stgin.RequestContext) stgin.Status 
     }
 })
 ```
-***common framework implementation:***
+***gin implementation:***
 ```go
 r.POST("/health", func(c *framework.Context) {
     var reqBody HealthCheckRequest
@@ -135,18 +140,18 @@ r.POST("/health", func(c *framework.Context) {
     if err != nil {
         // potential error handling
     }
-	// do something with reqBody
+        // do something with reqBody
     var response HealthCheckResponse = GetHealth()
     jsonResponse, _ := json.Marshal(response)
     if response.DBConnection {
-    	_, writeError := c.Writer.Write(jsonResponse)
+        _, writeError := c.Writer.Write(jsonResponse)
         c.Status(200)
         if writeError != nil {
             // potential error handling
         }
     } else {
-    	c.Status(500)
-    	_, writeError = c.Writer.Write(jsonResponse)
+        c.Status(500)
+        _, writeError = c.Writer.Write(jsonResponse)
         if writeError != nil {
             // potential error handling
         }
@@ -155,12 +160,14 @@ r.POST("/health", func(c *framework.Context) {
 ```
 Or just easily add headers or cookies with a receiver function instead of manually writing:
 ```go
-stgin.Ok(...).WithHeaders(...).WithCookies
+stgin.Ok(...).
+      WithHeaders(...).
+      WithCookies(...)
 ```
 
 ## Structure
 
-The structure of STgin types and interfaces is pretty simple, a `Server` may have several `Controller`s, and each controller may have serveral `Route`s.
+The structure of stgin types and interfaces is pretty simple, a `Server` may have several `Controller`s, and each controller may have serveral `Route`s.
 ```
     
     -Server =>
@@ -179,7 +186,7 @@ The structure of STgin types and interfaces is pretty simple, a `Server` may hav
 **RequestContext**: Holds the information about the requests, such as uri, body, headers, ... . Can parse request entity into the desired variable, using helper functions like `request.JSONInto`, `request.XMLInto`.
 
 **Status:** Is a wrapper around an actual http response, holds status code, response headers, response body, ... (i.e., Ok, BadRequest, ...)
-* ResponseEntity: A response could be of different content types (i.e., JSON, XML, Text, file, ...). A response entity is an interface which defined the content type of the response, and entity bytes. There are some helper functions provided in stgin to ease the use of these entities, like `stgin.Json`, `stgin.Text`, `stgin.Xml`, `stgin.File`.
+* ResponseEntity: A response could be of different content types (i.e., JSON, XML, Text, file, ...). A response entity is an interface which defines the content type of the response, and entity bytes. There are some helper functions provided in stgin to ease the use of these entities, like `stgin.Json`, `stgin.Text`, `stgin.Xml`, `stgin.File`.
 
 **API:** Is a type alias for a function which accepts a request context and returns a status.
 
@@ -217,7 +224,7 @@ The structure of STgin types and interfaces is pretty simple, a `Server` may hav
 * How to define?
 
   When defining a route, you can specify which query params of what type the route should expect. If a request could not satisfy the expected queries, it will be rejected by the route and will be passed into the next route and so on.
-  Specifying query parameters does not mean that the route would not accept other query parameters which are not specified.
+  Specifying query parameters does not mean that the route will not accept other query parameters which are not specified.
   By specifying the query parameters, you just make sure that when a request is accepted by the route, it always contains those query parameters with the right type.
   After defining the path pattern, use a question mark `?` to start defining query parameters, write the name of the parameter (if it has a certain type, use `:` and put the type name, i.e., int, string, float),
   and when done, put `&` to define the next query parameter. The order of queries does not matter.
@@ -241,7 +248,7 @@ The structure of STgin types and interfaces is pretty simple, a `Server` may hav
 
   There is a special method in request context, which can convert queries into a struct object.
   There are some few notes to take before using this. When defining the expected struct that the queries will be converted into,
-  if you need to use other naming in queries than the field in struct, use `qp` (short for query parameter) tag to specify the name (just like json tag):
+  if you need to use other naming in queries rather than the field name in struct, use `qp` (short for query parameter) tag to specify the name (just like json tag):
   ```go
     type UserSearchFilter struct {
         Username   string  `qp:"name"`
@@ -255,19 +262,19 @@ The structure of STgin types and interfaces is pretty simple, a `Server` may hav
     Notice the `Joined` field in the struct, parser looks for `&Joined=...` in the url.
     
 ## Custom Actions
-STgin does not provide actions about stuff like Authentication, because simple authentication is not useful most of the time, and you may need customized authentications.
+stgin does not provide actions about stuff like Authentication, because simple authentication is not useful most of the time, and you may need customized authentications.
 
 For instance:
 ```go
 type AuthInfo struct {
-	Username    string      `json:"username"`
-	AccountId   int         `json:"account_id"`
-	Roles       []string    `json:"roles"`
+        Username    string      `json:"username"`
+        AccountId   int         `json:"account_id"`
+        Roles       []string    `json:"roles"`
 }
 
 func authenticate(rc stgin.RequestContext) (AuthInfo, bool) {
     if name, found := rc.QueryParams.Get("user"); !found {
-    	...
+        ...
     } else {
         ...
     }
@@ -285,7 +292,7 @@ func Authenticated(rc stgin.RequestContext, action func(AuthInfo) stgin.Status) 
 // In the apis section
 myAPI := stgin.GET("/test", func(request stgin.RequestContext) stgin.Status {
     return Authenticated(request, func(authInfo AuthInfo) stgin.Status {
-        return stgin.Ok(&Greet(authInfo.Username))
+        return stgin.Ok(stgin.Json(&Greet(authInfo.Username)))
     })
 })
 
@@ -295,7 +302,7 @@ myAPI := stgin.GET("/test", func(request stgin.RequestContext) stgin.Status {
 Listeners are functions, which can affect the request and response based on the defined behavior.
 For instance, a `ResponseListener` is a function which receives a response, and returns a response, it can be used when you want to apply something to all the responses in server layer or controller layer (i.e., providing CORS headers).
 There are 3 types of listeners:
-* RequestListener: func(RequestContext) RequestContext [Can be used to mutate request before the controller receives it]
+* RequestListener: `RequestContext => RequestContext` [Can be used to return a new modified instance of the request]
 
   ```go
     func AddUserTrackingKey(request stgin.RequestContext) stgin.RequestContext {
@@ -303,39 +310,34 @@ There are 3 types of listeners:
       return request
     }
   ```
-* ResponseListener: func(Status) Status [Can be used to add/remove additional information to a raw controller response]
+* ResponseListener: `Status => Status` [Can be used to add/remove additional information to a new instance of Status]
 
   ```go
     func AddUserKeyToResponse(response stgin.Status) stgin.Status {
       return response.WithHeaders(http.Header{"X-Tracking-Key": {"<Some random value>"}}
     }
   ```
-* APIListener: func(RequestContext, Status) [Can be used to do stuff like logging, ...]
+* APIListener: `(RequestContext, Status) => void` [Can be used to do stuff like logging, ...]
 
   ```go
     func ApiLogger(request stgin.RequestContext, response stgin.Status) {
       fmt.Println("received", request, "returned", response)
     }
   ```
-  There are some listeners provided inside the STgin package which can be used inside a server or a controller (API watcher/logger, recovery, they're used in `stgin.DefaultServer` as well).
+  There are some listeners provided inside the stgin package which can be used inside a server or a controller (API watcher/logger, recovery, they're used in `stgin.DefaultServer` as well).
 
   
 # CORS Handling
 Cors handling can be done using server APIs:
 ```go
 server.CorsHandler(stgin.CorsHandler{
-	AllowOrigin: "*",
-	AllowHeaders: "*",
-	...
+        AllowOrigin: []string{"first_host.com", "second_host.com"},
+        AllowHeaders: []string{"*"},
+        AllowMethods: []string{"GET", "PUT", "POST", "HEAD", "OPTIONS"},
+        ...
 })
 ```
-There are also other ways to do this, like doing it in controller layer:
-```go
-func CorsHandlingAPI(stgin.RequestContext) stgin.Status {...(basically append headers)...}
-controller.AddRoutes(
-    stgin.OPTIONS(stgin.Prefix(""), CorsHandlingAPI),
-)
-```
+
 
 # Timeout
 You can adjust server request timeout using `server.SetTimeout`,
@@ -364,7 +366,7 @@ So you can return them inside your APIs, just give stgin the file location. If t
 
 **Directories:**
 
-Directories are a bit out of RESTful APIs concept, so It's not possible in stgin to return them as a http response.
+Directories are a bit out of RESTful APIs concept, so It's not possible in stgin to return them as an http response.
 Instead of defining routes for the file system, a special Routing function is available as `StaticDir`:
 ```go
 SomeController.AddRoutes(...) // some routes
@@ -379,8 +381,8 @@ Http push is available if you're using go 1.18 above, and using http 2 as a comm
 ```go
 // inside api definiction
 if request.HttpPush.IsSupported {
-	pusher := request.HttpPush.Pusher
-	// do stuff with pusher
+        pusher := request.HttpPush.Pusher
+        // do stuff with pusher
 }
 ```
 
