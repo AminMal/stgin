@@ -75,12 +75,6 @@ func DELETE(pattern string, api API) Route {
 	return mkRoute(pattern, api, "DELETE")
 }
 
-// Prefix can be used as a pattern inside route definition, which matches all the requests that contain the given prefix.
-// Note that this is appended to the corresponding controller's prefix in which the route is defined.
-func Prefix(path string) string {
-	return normalizePath("/" + path + "/.*")
-}
-
 // PATCH is a shortcut to define a route with http "PATCH" method.
 func PATCH(pattern string, api API) Route {
 	return mkRoute(pattern, api, "PATCH")
@@ -89,6 +83,12 @@ func PATCH(pattern string, api API) Route {
 // OPTIONS is a shortcut to define a route with http "OPTIONS" method.
 func OPTIONS(pattern string, api API) Route {
 	return mkRoute(pattern, api, "OPTIONS")
+}
+
+// Prefix can be used as a pattern inside route definition, which matches all the requests that contain the given prefix.
+// Note that this is appended to the corresponding controller's prefix in which the route is defined.
+func Prefix(path string) string {
+	return normalizePath("/" + path + "/.*")
 }
 
 // StaticDir can be used to server static directories.
