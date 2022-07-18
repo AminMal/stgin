@@ -261,6 +261,16 @@ The structure of stgin types and interfaces is pretty simple, a `Server` may hav
   * **If you do not pass the name to qp tag, parser would look up for the actual field name in the queries:**
     Notice the `Joined` field in the struct, parser looks for `&Joined=...` in the url.
     
+## Custom parameter patterns
+stgin provides patterns for `int`, `string`, `float` and `uuid` already. but If you need to add some custom pattern to use in query or path parameter definition, you can add the name with a valid pattern(regex) that gets compiled. 
+```go
+startsWithJohnRegex := "^john.*"
+err := AddMatchingPattern("john", startsWithJohnRegex)
+```
+the above function will fail with errors if:
+* 1) Try to override default patterns (`int`, `string`, `float`, `uuid`)
+* 2) The given pattern couldn't be compiled
+-----
 ## Custom Actions
 stgin does not provide actions about stuff like Authentication, because simple authentication is not useful most of the time, and you may need customized authentications.
 

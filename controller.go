@@ -26,7 +26,7 @@ func NewController(name string, prefix string) *Controller {
 	}
 }
 
-// AddRoutes normalizes, and evaluates path patterns for the given routes, and then adds them to the routes it contains.
+// AddRoutes normalizes, and evaluates path matchers for the given routes, and then adds them to the routes it contains.
 func (controller *Controller) AddRoutes(routes ...Route) {
 	for _, route := range routes {
 		route.controller = controller

@@ -10,10 +10,6 @@ import (
 
 type queryDecl = map[string]string
 
-var intQueryRegex = regexp.MustCompile("^" + intRegexStr + "$")
-var floatQueryRegex = regexp.MustCompile("^" + floatRegexStr + "$")
-var strQueryRegex = regexp.MustCompile(".*")
-
 // Queries is just a struct holding all the key value pairs of request's query parameters.
 // It also defines some useful receiver functions in order to ease fetching query params.
 type Queries struct {
@@ -87,14 +83,9 @@ func (q Queries) MustGetFloat(key string) float64 {
 }
 
 func getQueryMatcher(tpe string) *regexp.Regexp {
-	switch tpe {
-	case "int":
-		return intQueryRegex
-	case "float":
-		return floatQueryRegex
-	default:
-		return strQueryRegex
-	}
+	pattern := matchers[tpe]
+	if pattern != nil { return pattern.compiledRegex }
+	return strQueryRegex
 }
 
 func acceptsQuery(tpe string, value string) bool {
