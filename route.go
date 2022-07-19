@@ -8,7 +8,7 @@ import (
 
 // API is the lowest-level functionality in stgin.
 // It represents a function which takes a request, and generates an HTTP response.
-type API = func(c RequestContext) Status
+type API = func(request *RequestContext) Response
 
 // Route is a struct which specifies whether a request should be handled by the given Action inside the route.
 type Route struct {

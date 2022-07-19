@@ -22,7 +22,7 @@ func TestEmptyRouteCreationStage(t *testing.T) {
 }
 
 func TestGET(t *testing.T) {
-	helloAPI := func(RequestContext) Status {return Ok(Text("hello"))}
+	helloAPI := func(*RequestContext) Response {return Ok(Text("hello"))}
 	route := GET("/hello", helloAPI)
 	if route.Method != http.MethodGet {
 		t.Fatal("GET method could not set the correct http method")
@@ -30,7 +30,7 @@ func TestGET(t *testing.T) {
 }
 
 func TestPUT(t *testing.T) {
-	helloAPI := func(RequestContext) Status {return Ok(Text("hello"))}
+	helloAPI := func(*RequestContext) Response {return Ok(Text("hello"))}
 	route := PUT("/hello", helloAPI)
 	if route.Method != http.MethodPut {
 		t.Fatal("GET method could not set the correct http method")
@@ -38,7 +38,7 @@ func TestPUT(t *testing.T) {
 }
 
 func TestPOST(t *testing.T) {
-	helloAPI := func(RequestContext) Status {return Ok(Text("hello"))}
+	helloAPI := func(*RequestContext) Response {return Ok(Text("hello"))}
 	route := POST("/hello", helloAPI)
 	if route.Method != http.MethodPost {
 		t.Fatal("GET method could not set the correct http method")
@@ -46,7 +46,7 @@ func TestPOST(t *testing.T) {
 }
 
 func TestPATCH(t *testing.T) {
-	helloAPI := func(RequestContext) Status {return Ok(Text("hello"))}
+	helloAPI := func(*RequestContext) Response {return Ok(Text("hello"))}
 	route := PATCH("/hello", helloAPI)
 	if route.Method != http.MethodPatch {
 		t.Fatal("GET method could not set the correct http method")
@@ -54,7 +54,7 @@ func TestPATCH(t *testing.T) {
 }
 
 func TestDELETE(t *testing.T) {
-	helloAPI := func(RequestContext) Status {return Ok(Text("hello"))}
+	helloAPI := func(*RequestContext) Response {return Ok(Text("hello"))}
 	route := DELETE("/hello", helloAPI)
 	if route.Method != http.MethodDelete {
 		t.Fatal("GET method could not set the correct http method")

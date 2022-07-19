@@ -1,19 +1,16 @@
 package stgin
 
-// RequestListener is a function which is applied to the incoming requests, before the api actually receives it.
-// It can be defined both on the controller layer, or server layer.
-type RequestListener = func(RequestContext) RequestContext
+// RequestModifier is a function that accepts a *RequestChangeable object and allows only some fields to be mutated
+type RequestModifier = func(*RequestChangeable)
 
-// ResponseListener is a function which is applied to the outgoing http responses, after they're evaluated by the api.
-// It can be defined both on the controller layer, or server layer.
-type ResponseListener = func(Status) Status
+// ResponseModifier is a function that accepts a Response object and allows only some fields to be mutated
+type ResponseModifier = func(Response)
 
-// APIListener is a function which is applied to both request and response, after the response is written to the client.
-// It can be defined both on the controller layer, or server layer.
-type APIListener = func(RequestContext, Status)
+// ApiWatcher is a function that gets executed after an http response is done, can be used for logging, etc.
+type ApiWatcher = func(*RequestContext, Response)
 
 // ErrorHandler is a function which can decide what to do, based on the request and the error.
-type ErrorHandler = func(request RequestContext, err any) Status
+type ErrorHandler = func(request *RequestContext, err any) Response
 
 // CorsHandler is just a semantic wrapper over common CORS headers.
 type CorsHandler struct {

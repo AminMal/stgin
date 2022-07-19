@@ -10,7 +10,7 @@ import (
 // which is filled within completeWith.
 // A real world example would be timeouts; server.SetTimeout actually uses an interrupt to perform timeout operations.
 type Interrupt interface {
-	TriggerFor(request RequestContext, completeWith chan *Status)
+	TriggerFor(request *RequestContext, completeWith chan *Status)
 }
 
 func contextTimeoutExceededResponse() Status {
@@ -25,7 +25,7 @@ type timeoutInterrupt struct {
 	timeout time.Duration
 }
 
-func (t timeoutInterrupt) TriggerFor(_ RequestContext, completeWith chan *Status) {
+func (t timeoutInterrupt) TriggerFor(_ *RequestContext, completeWith chan *Status) {
 	<-time.After(t.timeout)
 	result := contextTimeoutExceededResponse()
 	completeWith <- &result

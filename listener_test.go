@@ -7,34 +7,29 @@ import (
 	"testing"
 )
 
-func welcomeAPI(RequestContext) Status {
+func welcomeAPI(*RequestContext) Response {
 	return Ok(Text("Welcome"))
 }
 
-func responseBodyModifier(response Status) Status {
+func responseBodyModifier(response Response) {
 	originalBody, _ := response.Entity.(textEntity)
 	response.Entity = Text(originalBody.obj + " to the team!")
-	return response
 }
 
-func responseStatusModifier(response Status) Status {
+func responseStatusModifier(response Response) {
 	response.StatusCode += 1
-	return response
 }
 
-func responseAddHeadersListener(response Status) Status {
+func responseAddHeadersListener(response Response) {
 	response.Headers["x-test-listeners"] = []string{"true"}
-	return response
 }
 
-func requestQueryModifier(request RequestContext) RequestContext {
-	request.QueryParams.All["test"] = []string{"true"}
-	return request
+func requestQueryModifier(changeable *RequestChangeable) {
+	changeable.SetQueries("test", []string{"true"})
 }
 
-func requestHeaderModifier(request RequestContext) RequestContext {
-	request.Headers["X-Test-Listeners"] = []string{"true"}
-	return request
+func requestHeaderModifier(changeable *RequestChangeable) {
+	changeable.SetHeader("x-test-listeners", "true")
 }
 
 func TestResponseListeners(t *testing.T) {
@@ -70,10 +65,10 @@ func TestRequestListeners(t *testing.T) {
 	testController := NewController("Test", "/test")
 	var testQueryValue string
 	var testHeaderValue string
-	testController.AddRoutes(GET("/req", func(request RequestContext) Status {
-		fmt.Println("queryDecl: ", request.QueryParams, "headers: ", request.Headers)
-		testQueryValue = request.QueryParams.MustGet("test")
-		testHeaderValue = request.Headers.Get("X-Test-Listeners")
+	testController.AddRoutes(GET("/req", func(request *RequestContext) Response {
+		fmt.Println("queryDecl: ", request.QueryParams(), "headers: ", request.Headers())
+		testQueryValue = request.QueryParams().MustGet("test")
+		testHeaderValue = request.Headers().Get("X-Test-Listeners")
 		return Ok(Text("Done"))
 	}))
 	testController.AddRequestListeners(requestHeaderModifier, requestQueryModifier)

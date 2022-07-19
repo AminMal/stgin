@@ -49,7 +49,7 @@ func mkDummyRequest(path string) *http.Request {
 
 func TestAcceptsAllQueries(t *testing.T) {
 	pattern := "/test/queryDecl?query:string&name&age:int&email"
-	dummyRoute := GET(pattern, func(_ RequestContext) Status { return Ok(Empty()) })
+	dummyRoute := GET(pattern, func(_ *RequestContext) Response { return Ok(Empty()) })
 	regex, compileError := getPatternCorrespondingRegex(dummyRoute.Path)
 	if compileError != nil {
 		t.Fatalf("could not compile route pattern: %s", dummyRoute.Path)
@@ -93,8 +93,8 @@ func TestAcceptsAllQueries(t *testing.T) {
 
 func TestAcceptsAllQueries2(t *testing.T) {
 	pattern := "/showall?uid:int&username"
-	dummyRoute := GET(pattern, func(request RequestContext) Status {
-		return Ok(Text(strconv.Itoa(request.QueryParams.MustGetInt(`uid`))))
+	dummyRoute := GET(pattern, func(request *RequestContext) Response {
+		return Ok(Text(strconv.Itoa(request.QueryParams().MustGetInt(`uid`))))
 	})
 	regex, compileError := getPatternCorrespondingRegex(dummyRoute.Path)
 	if compileError != nil {

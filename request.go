@@ -9,27 +9,76 @@ import (
 	"time"
 )
 
-// RequestContext holds all the information about incoming http requests.
-type RequestContext struct {
-	Url           string
-	QueryParams   Queries
-	PathParams    PathParams
-	Headers       http.Header
-	Trailer       http.Header
-	Body          func() *RequestBody
-	receivedAt    time.Time
-	Method        string
-	ContentLength int64
-	Host          string
-	MultipartForm func() *multipart.Form
-	Scheme        string
-	RemoteAddr    string
-	Underlying    *http.Request
-	HttpPush      Push
+// RequestChangeable holds only changeable data for request that can be modified in pre-api time.
+type RequestChangeable struct {
+	queries		 	Queries
+	pathParams 		PathParams
+	headers 		http.Header
 }
 
-func (request RequestContext) ReceivedAt() time.Time {
-	return request.receivedAt
+func (changeable *RequestChangeable) Queries() Queries { return changeable.queries }
+func (changeable *RequestChangeable) AddQuery(key string, values []string) {
+	changeable.queries.All[key] = append(changeable.queries.All[key], values...)
+}
+func (changeable *RequestChangeable) SetQueries(key string, values []string) {
+	changeable.queries.All[key] = values
+}
+
+func (changeable *RequestChangeable) PathParams() PathParams { return changeable.pathParams }
+func (changeable *RequestChangeable) SetPathParam(key, value string) {
+	changeable.pathParams.All[key] = value
+}
+
+func (changeable *RequestChangeable) Headers() http.Header { return changeable.headers }
+func (changeable *RequestChangeable) AddHeader(key, value string) {
+	changeable.headers.Add(key, value)
+}
+func (changeable *RequestChangeable) AddRawHeader(key, value string) {
+	changeable.headers[key] = append(changeable.headers[key], value)
+}
+func (changeable *RequestChangeable) SetHeader(key string, value string) {
+	changeable.headers.Set(key, value)
+}
+func (changeable *RequestChangeable) SetRawHeader(key string, values []string) {
+	changeable.headers[key] = values
+}
+
+type RequestContext struct {
+	url 			string
+	queryParams 	Queries
+	pathParams  	PathParams
+	headers  		http.Header
+	trailer     	http.Header
+	Body          	func() *RequestBody
+	receivedAt  	time.Time
+	method 			string
+	contentLength 	int64
+	host 			string
+	MultipartForm 	func() *multipart.Form
+	scheme 			string
+	remoteAddr  	string
+	underlying  	*http.Request
+	httpPush    	Push
+}
+
+func (rc *RequestContext) Url() string               { return rc.url }
+func (rc *RequestContext) QueryParams() Queries      { return rc.queryParams }
+func (rc *RequestContext) PathParams() PathParams    { return rc.pathParams }
+func (rc *RequestContext) Headers() http.Header      { return rc.headers }
+func (rc *RequestContext) Trailer() http.Header      { return rc.trailer }
+func (rc *RequestContext) ReceivedAt() time.Time     { return rc.receivedAt }
+func (rc *RequestContext) Method() string            { return rc.method }
+func (rc *RequestContext) ContentLength() int64      { return rc.contentLength }
+func (rc *RequestContext) Host() string              { return rc.host }
+func (rc *RequestContext) Scheme() string            { return rc.scheme }
+func (rc *RequestContext) RemoteAddr() string        { return rc.remoteAddr }
+func (rc *RequestContext) Underlying() *http.Request { return rc.underlying }
+func (rc *RequestContext) Push() Push                { return rc.httpPush }
+
+func (rc *RequestContext) affectChangeable(changeable *RequestChangeable) {
+	if changeable.headers != nil { rc.headers = changeable.headers }
+	if changeable.queries.All != nil { rc.headers = changeable.headers }
+	if changeable.pathParams.All != nil { rc.pathParams = changeable.pathParams }
 }
 
 // Push is a struct that represents both the ability, and the functionality of http push inside this request.
@@ -48,63 +97,63 @@ func (p Push) Pusher() http.Pusher {
 }
 
 // Cookies returns the cookies that are attached to the request.
-func (request RequestContext) Cookies() []*http.Cookie {
-	return request.Underlying.Cookies()
+func (rc *RequestContext) Cookies() []*http.Cookie {
+	return rc.underlying.Cookies()
 }
 
 // Referer returns the value of referer header in http request, returns empty string if it does not exist.
-func (request RequestContext) Referer() string { return request.Underlying.Referer() }
+func (rc *RequestContext) Referer() string { return rc.underlying.Referer() }
 
 // UserAgent returns the value of request's user agent, returns empty string if it does not exist.
-func (request RequestContext) UserAgent() string { return request.Underlying.UserAgent() }
+func (rc *RequestContext) UserAgent() string { return rc.underlying.UserAgent() }
 
 // Cookie tries to find a cookie with the given name.
-func (request RequestContext) Cookie(name string) (*http.Cookie, error) {
-	return request.Underlying.Cookie(name)
+func (rc *RequestContext) Cookie(name string) (*http.Cookie, error) {
+	return rc.underlying.Cookie(name)
 }
 
 // FormValue is a shortcut to get a value by name inside the request form instead of parsing the whole form.
-func (request RequestContext) FormValue(key string) string {
-	return request.Underlying.FormValue(key)
+func (rc *RequestContext) FormValue(key string) string {
+	return rc.underlying.FormValue(key)
 }
 
 // FormFile is a shortcut to get a file with the given name from multipart form.
-func (request RequestContext) FormFile(key string) (multipart.File, *multipart.FileHeader, error) {
-	return request.Underlying.FormFile(key)
+func (rc *RequestContext) FormFile(key string) (multipart.File, *multipart.FileHeader, error) {
+	return rc.underlying.FormFile(key)
 }
 
 // PostFormValue can get a value by the given name from request post-form.
-func (request RequestContext) PostFormValue(key string) string {
-	return request.Underlying.PostFormValue(key)
+func (rc *RequestContext) PostFormValue(key string) string {
+	return rc.underlying.PostFormValue(key)
 }
 
 // ParseMultipartForm is the manual approach to parse the request's entity to multipart form.
 // Please read (*http.Request).ParseMultipartForm for more detailed information.
-func (request RequestContext) ParseMultipartForm(maxMemory int64) error {
-	return request.Underlying.ParseMultipartForm(maxMemory)
+func (rc *RequestContext) ParseMultipartForm(maxMemory int64) error {
+	return rc.underlying.ParseMultipartForm(maxMemory)
 }
 
 // Form returns all the key-values inside the given request.
 // It calls ParseForm itself.
-func (request RequestContext) Form() (map[string][]string, error) {
-	if err := request.Underlying.ParseForm(); err != nil {
+func (rc *RequestContext) Form() (map[string][]string, error) {
+	if err := rc.underlying.ParseForm(); err != nil {
 		return nil, err
 	}
-	return request.Underlying.Form, nil
+	return rc.underlying.Form, nil
 }
 
 // PostForm returns all the key-values inside the given request's post-form.
-func (request RequestContext) PostForm() (map[string][]string, error) {
-	if err := request.Underlying.ParseForm(); err != nil {
+func (rc *RequestContext) PostForm() (map[string][]string, error) {
+	if err := rc.underlying.ParseForm(); err != nil {
 		return nil, err
 	} else {
-		return request.Underlying.PostForm, nil
+		return rc.underlying.PostForm, nil
 	}
 }
 
 // AddCookie adds the cookie to the request.
-func (request RequestContext) AddCookie(cookie *http.Cookie) {
-	request.Underlying.AddCookie(cookie)
+func (rc *RequestContext) AddCookie(cookie *http.Cookie) {
+	rc.underlying.AddCookie(cookie)
 }
 
 // RequestBody holds the bytes of the request's body entity.
@@ -137,7 +186,7 @@ func bodyFromReadCloser(reader io.ReadCloser) (*RequestBody, error) {
 	}
 }
 
-func requestContextFromHttpRequest(request *http.Request, writer http.ResponseWriter, pathParams Params) RequestContext {
+func requestContextFromHttpRequest(request *http.Request, writer http.ResponseWriter, pathParams Params) *RequestContext {
 	var pusher http.Pusher
 	var isSupported bool
 	if writer != nil {
@@ -149,12 +198,12 @@ func requestContextFromHttpRequest(request *http.Request, writer http.ResponseWr
 	} else {
 		headers = request.Header
 	}
-	return RequestContext{
-		Url:         request.URL.Path,
-		QueryParams: Queries{request.URL.Query()},
-		PathParams:  PathParams{pathParams},
-		Headers:     headers,
-		Trailer:     request.Trailer,
+	return &RequestContext{
+		url:         request.URL.Path,
+		queryParams: Queries{request.URL.Query()},
+		pathParams:  PathParams{pathParams},
+		headers:     headers,
+		trailer:     request.Trailer,
 		Body: func() *RequestBody {
 			var body *RequestBody
 			if request.Body != nil {
@@ -163,16 +212,16 @@ func requestContextFromHttpRequest(request *http.Request, writer http.ResponseWr
 			return body
 		},
 		receivedAt:    time.Now(),
-		Method:        request.Method,
-		ContentLength: request.ContentLength,
-		Host:          request.Host,
+		method:        request.Method,
+		contentLength: request.ContentLength,
+		host:          request.Host,
 		MultipartForm: func() *multipart.Form {
 			return request.MultipartForm
 		},
-		Scheme:     request.URL.Scheme,
-		RemoteAddr: request.RemoteAddr,
-		Underlying: request,
-		HttpPush: Push{
+		scheme:     request.URL.Scheme,
+		remoteAddr: request.RemoteAddr,
+		underlying: request,
+		httpPush: Push{
 			IsSupported: isSupported,
 			pusher:      pusher,
 		},

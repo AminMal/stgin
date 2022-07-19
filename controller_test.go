@@ -12,7 +12,7 @@ type msg struct {
 	Message string `json:"message"`
 }
 
-var ping Route = GET("/ping", func(_ RequestContext) Status {
+var ping Route = GET("/ping", func(_ *RequestContext) Response {
 	return Ok(Json(&msg{Message: "PONG!"}))
 })
 
@@ -26,18 +26,16 @@ func TestNewController(t *testing.T) {
 func TestControllerListeners(t *testing.T) {
 	var apiLogToTerminalString string
 	var dummyQuery string
-	var statusIncrementor ResponseListener = func(status Status) Status {
-		status.StatusCode = status.StatusCode + 1
-		return status
+	var statusIncrementor = func(status Response) {
+		status.StatusCode += 1
 	}
 
-	var addDummyQuery RequestListener = func(request RequestContext) RequestContext {
-		request.QueryParams = Queries{map[string][]string{"dummy": {"yes"}}}
-		return request
+	var addDummyQuery RequestModifier = func(request *RequestChangeable) {
+		request.SetQueries("dummy", []string{"yes"})
 	}
-	var addApiLog APIListener = func(request RequestContext, status Status) {
-		apiLogToTerminalString = fmt.Sprintf("request with path %v completed with status %d", request.Url, status.StatusCode)
-		dummyQuery = request.QueryParams.MustGet("dummy")
+	var addApiLog ApiWatcher = func(request *RequestContext, status Response) {
+		apiLogToTerminalString = fmt.Sprintf("request with path %s completed with status %d", request.Url(), status.StatusCode)
+		dummyQuery = request.QueryParams().MustGet("dummy")
 	}
 
 	controller := NewController("TestSuite", "/test")
@@ -73,7 +71,7 @@ func TestControllerListeners(t *testing.T) {
 
 func TestController_Timeout(t *testing.T) {
 	controller := NewController("Timeout controller", "")
-	timeConsumingTask := func(request RequestContext) Status {
+	timeConsumingTask := func(*RequestContext) Response {
 		time.Sleep(1 * time.Second)
 		return Ok(Empty())
 	}

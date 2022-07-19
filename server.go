@@ -17,9 +17,9 @@ var defaultController *Controller = NewController("Server", "")
 type Server struct {
 	addr              string
 	Controllers       []*Controller
-	requestListeners  []RequestListener
-	responseListeners []ResponseListener
-	apiListeners      []APIListener
+	requestListeners  []RequestModifier
+	responseListeners []ResponseModifier
+	apiListeners      []ApiWatcher
 	notFoundAction    API
 	errorAction       ErrorHandler
 	interrupts        []Interrupt
@@ -42,7 +42,7 @@ func (server *Server) AddRoutes(routes ...Route) {
 
 // CorsHandler function takes the responsibility to handle requests with "OPTIONS" method with the given headers in handler parameter.
 func (server *Server) CorsHandler(handler CorsHandler) {
-	server.AddRoutes(OPTIONS(Prefix(""), func(RequestContext) Status {
+	server.AddRoutes(OPTIONS(Prefix(""), func(*RequestContext) Response {
 		return Ok(Empty()).WithHeaders(http.Header{
 			"Access-Control-Allow-Origin":      []string{strings.Join(handler.AllowOrigin, ", ")},
 			"Access-Control-Allow-Credentials": []string{strings.Join(handler.AllowCredentials, ", ")},
@@ -54,19 +54,19 @@ func (server *Server) CorsHandler(handler CorsHandler) {
 
 // AddRequestListeners adds the given request listeners to server-level
 // listeners (which then will be applied to all the incoming requests).
-func (server *Server) AddRequestListeners(listeners ...RequestListener) {
+func (server *Server) AddRequestListeners(listeners ...RequestModifier) {
 	server.requestListeners = append(server.requestListeners, listeners...)
 }
 
 // AddResponseListeners adds the given response listeners to server-level
 // listeners (which then will be applied to all the outgoing responses).
-func (server *Server) AddResponseListeners(listeners ...ResponseListener) {
+func (server *Server) AddResponseListeners(listeners ...ResponseModifier) {
 	server.responseListeners = append(server.responseListeners, listeners...)
 }
 
 // AddAPIListeners adds the given api listeners to server-level
 // listeners (which then will be applied to all the incoming requests and outgoing responses after they're finished).
-func (server *Server) AddAPIListeners(listeners ...APIListener) {
+func (server *Server) AddAPIListeners(listeners ...ApiWatcher) {
 	server.apiListeners = append(server.apiListeners, listeners...)
 }
 
@@ -96,7 +96,7 @@ func catchErrInto(errChan chan interface{}) {
 	}
 }
 
-func executeInterrupts(interrupts []Interrupt, request RequestContext, completeWith chan *Status) {
+func executeInterrupts(interrupts []Interrupt, request *RequestContext, completeWith chan *Status) {
 	for _, interrupt := range interrupts {
 		go interrupt.TriggerFor(request, completeWith)
 	}
@@ -106,9 +106,9 @@ func executeInterrupts(interrupts []Interrupt, request RequestContext, completeW
 // and is responsible to translate it into the lower-level base package(currently net/http).
 func translate(
 	api API,
-	requestListeners []RequestListener,
-	responseListeners []ResponseListener,
-	apiListeners []APIListener,
+	requestListeners []RequestModifier,
+	responseListeners []ResponseModifier,
+	apiListeners []ApiWatcher,
 	recovery ErrorHandler,
 	pathParams Params,
 	interrupts []Interrupt,
@@ -124,9 +124,14 @@ func translate(
 		}
 
 		rc := requestContextFromHttpRequest(request, writer, pathParams)
+		changeable := &RequestChangeable{
+			queries:    rc.queryParams,
+			pathParams: rc.pathParams,
+			headers:    rc.headers,
+		}
 
 		for _, requestListener := range requestListeners {
-			rc = requestListener(rc)
+			requestListener(changeable)
 		}
 		go executeInterrupts(interrupts, rc, interruptChannel)
 
@@ -135,15 +140,15 @@ func translate(
 
 			result := api(rc)
 			for _, responseListener := range responseListeners {
-				result = responseListener(result)
+				responseListener(result)
 			}
 			result.doneAt = time.Now()
-			successfulResultChannel <- &result
+			successfulResultChannel <- result
 		}()
 
 		select {
 		case interrupt := <-interruptChannel:
-			result := *interrupt
+			result := interrupt
 			interrupt.complete(request, writer)
 			for _, apiListener := range apiListeners {
 				apiListener(rc, result)
@@ -152,7 +157,7 @@ func translate(
 			success.complete(request, writer)
 
 			for _, apiListener := range apiListeners {
-				go apiListener(rc, *success)
+				go apiListener(rc, success)
 			}
 
 		case err := <-panicChannel:
@@ -168,16 +173,16 @@ func translate(
 
 // WatchAPIs is the default request and response logger for stgin.
 // It logs the input request and the output response into the console.
-func WatchAPIs(request RequestContext, status Status) {
+func WatchAPIs(request *RequestContext, status Response) {
 	difference := fmt.Sprint(status.doneAt.Sub(request.receivedAt))
 	if status.StatusCode == http.StatusRequestTimeout {
 		_ = stginLogger.InfoF("%s -> %s\t\t|%s request timed out after %s%s",
-			request.Method, request.Url, colored.YELLOW, difference, colored.ResetPrevColor,
+			request.Method(), request.Url(), colored.YELLOW, difference, colored.ResetPrevColor,
 		)
 		return
 	}
 	statusString := fmt.Sprintf("%v%d%v", getColor(status.StatusCode), status.StatusCode, colored.ResetPrevColor)
-	_ = stginLogger.InfoF("%s -> %s\t\t| %v | %v", request.Method, request.Url, statusString, difference)
+	_ = stginLogger.InfoF("%s -> %s\t\t| %v | %v", request.Method(), request.Url(), statusString, difference)
 }
 
 type generalFailureMessage struct {
@@ -187,31 +192,31 @@ type generalFailureMessage struct {
 	Method     string `json:"method"`
 }
 
-var notFoundDefaultAction API = func(request RequestContext) Status {
+var notFoundDefaultAction API = func(request *RequestContext) Response {
 	return NotFound(Json(&generalFailureMessage{
 		StatusCode: http.StatusNotFound,
-		Path:       request.Url,
+		Path:       request.Url(),
 		Message:    "route not found",
-		Method:     request.Method,
+		Method:     request.Method(),
 	}))
 }
 
-var errorAction ErrorHandler = func(request RequestContext, err any) Status {
+var errorAction ErrorHandler = func(request *RequestContext, err any) Response {
 	printStacktrace(fmt.Sprintf("recovering following error: %v%v%v", colored.RED, fmt.Sprint(err), colored.ResetPrevColor))
 	if parseErr, isParseError := err.(ParseError); isParseError {
 		return BadRequest(Json(&generalFailureMessage{
 			StatusCode: 400,
-			Path:       request.Url,
+			Path:       request.Url(),
 			Message:    parseErr.Error(),
-			Method:     request.Method,
+			Method:     request.Method(),
 		}))
 	}
 
 	return InternalServerError(Json(&generalFailureMessage{
 		StatusCode: 500,
-		Path:       request.Url,
+		Path:       request.Url(),
 		Message:    "internal server error",
-		Method:     request.Method,
+		Method:     request.Method(),
 	}))
 }
 
@@ -333,7 +338,7 @@ func DefaultServer(addr string) *Server {
 }
 
 
-func (server *Server) executeInternal(request *http.Request) Status {
+func (server *Server) executeInternal(request *http.Request) Response {
 	var headers http.Header
 	if request.Header == nil {
 		headers = emptyHeaders
@@ -341,11 +346,11 @@ func (server *Server) executeInternal(request *http.Request) Status {
 		headers = request.Header
 	}
 
-	rc := RequestContext{
-		Url:         request.URL.Path,
-		QueryParams: Queries{request.URL.Query()},
-		PathParams:  PathParams{nil},
-		Headers:     headers,
+	rc := &RequestContext{
+		url:         request.URL.Path,
+		queryParams: Queries{request.URL.Query()},
+		pathParams:  PathParams{nil},
+		headers:     headers,
 		Body: func() *RequestBody {
 			return &RequestBody{
 				underlying:      nil,
@@ -354,14 +359,20 @@ func (server *Server) executeInternal(request *http.Request) Status {
 			}
 		},
 		receivedAt:    time.Now(),
-		Method:        request.Method,
-		ContentLength: request.ContentLength,
-		Host:          request.Host,
+		method:        request.Method,
+		contentLength: request.ContentLength,
+		host:          request.Host,
 		MultipartForm: func() *multipart.Form {
 			return request.MultipartForm
 		},
-		Scheme:     request.URL.Scheme,
-		RemoteAddr: request.RemoteAddr,
+		scheme:     request.URL.Scheme,
+		remoteAddr: request.RemoteAddr,
+	}
+
+	changeable := &RequestChangeable{
+		queries:    rc.QueryParams(),
+		pathParams: rc.PathParams(),
+		headers:    rc.Headers(),
 	}
 
 	interruptChannel := make(chan *Status, 1)
@@ -378,7 +389,7 @@ func (server *Server) executeInternal(request *http.Request) Status {
 	}
 
 	for _, modifier := range server.requestListeners {
-		rc = modifier(rc)
+		modifier(changeable)
 	}
 
 	for _, interrupt := range server.interrupts {
@@ -387,13 +398,13 @@ func (server *Server) executeInternal(request *http.Request) Status {
 
 	var done bool
 	go func() {
-		var result Status
+		var result Response
 		for _, c := range server.Controllers {
 			if done { break }
 			for _, route := range c.routes {
 				matches, pathParams := route.acceptsAndPathParams(request)
 				if matches && acceptsAllQueries(route.expectedQueries, request.URL.Query()) {
-					rc.PathParams = PathParams{pathParams}
+					rc.pathParams = PathParams{pathParams}
 					done = true
 					result = route.Action(rc)
 					break
@@ -410,24 +421,21 @@ func (server *Server) executeInternal(request *http.Request) Status {
 		}
 
 		for _, modifier := range responseListeners {
-			result = modifier(result)
+			modifier(result)
 		}
-		successfulOperationChannel <- &result
+		successfulOperationChannel <- result
 	}()
 
 	select {
 	case interrupted := <-interruptChannel:
-		result := *interrupted
-		
 		for _, watcher := range apiListeners {
-			go watcher(rc, result)
+			go watcher(rc, interrupted)
 		}
-		return result
+		return interrupted
 	case normal := <-successfulOperationChannel:
-		result := *normal
 		for _, watcher := range apiListeners {
-			go watcher(rc, result)
+			go watcher(rc, normal)
 		}
-		return result
+		return normal
 	}
 }

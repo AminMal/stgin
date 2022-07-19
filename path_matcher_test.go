@@ -7,7 +7,7 @@ import (
 
 func TestMatchAndExtractPathParams(t *testing.T) {
 	pattern := "/users/$username:string/purchases/$id:int?age"
-	var dummyAPI API = func(_ RequestContext) Status { return Ok(Empty()) }
+	var dummyAPI API = func(_ *RequestContext) Response { return Ok(Empty()) }
 	dummyRoute := GET(pattern, dummyAPI)
 	regex, compileErr := getPatternCorrespondingRegex(dummyRoute.Path)
 	if compileErr != nil {

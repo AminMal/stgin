@@ -12,9 +12,9 @@ type Controller struct {
 	Name              string
 	routes            []Route
 	prefix            string
-	requestListeners  []RequestListener
-	responseListeners []ResponseListener
-	apiListeners      []APIListener
+	requestListeners  []RequestModifier
+	responseListeners []ResponseModifier
+	apiListeners      []ApiWatcher
 	interrupts        []Interrupt
 }
 
@@ -38,20 +38,20 @@ func (controller *Controller) AddRoutes(routes ...Route) {
 
 // AddRequestListeners registers the given listeners to the controller.
 // These listeners then will be applied to all the requests coming inside this controller.
-func (controller *Controller) AddRequestListeners(listeners ...RequestListener) {
+func (controller *Controller) AddRequestListeners(listeners ...RequestModifier) {
 	controller.requestListeners = append(controller.requestListeners, listeners...)
 }
 
 // AddResponseListener registers the given listeners to the controller.
 // These listeners then will be applied to all the outgoing responses from this controller.
-func (controller *Controller) AddResponseListener(listeners ...ResponseListener) {
+func (controller *Controller) AddResponseListener(listeners ...ResponseModifier) {
 	controller.responseListeners = append(controller.responseListeners, listeners...)
 }
 
 // AddAPIListeners registers the given listeners to the controller.
 // These listeners then will be applied to all the incoming/outgoing requests and responses after they're evaluated
 // And returned to the client.
-func (controller *Controller) AddAPIListeners(listeners ...APIListener) {
+func (controller *Controller) AddAPIListeners(listeners ...ApiWatcher) {
 	controller.apiListeners = append(controller.apiListeners, listeners...)
 }
 
@@ -66,7 +66,7 @@ func (controller *Controller) RegisterInterrupts(interrupts ...Interrupt) {
 }
 
 // executeInternal is just for testing purposes. This simulates executing an actual http request.
-func (controller *Controller) executeInternal(request *http.Request) Status {
+func (controller *Controller) executeInternal(request *http.Request) Response {
 	var headers http.Header
 	if request.Header == nil {
 		headers = emptyHeaders
@@ -75,10 +75,10 @@ func (controller *Controller) executeInternal(request *http.Request) Status {
 	}
 
 	rc := RequestContext{
-		Url:         request.URL.Path,
-		QueryParams: Queries{request.URL.Query()},
-		PathParams:  PathParams{nil},
-		Headers:     headers,
+		url:         request.URL.Path,
+		queryParams: Queries{request.URL.Query()},
+		pathParams:  PathParams{nil},
+		headers:     headers,
 		Body: func() *RequestBody {
 			return &RequestBody{
 				underlying:      nil,
@@ -87,37 +87,50 @@ func (controller *Controller) executeInternal(request *http.Request) Status {
 			}
 		},
 		receivedAt:    time.Now(),
-		Method:        request.Method,
-		ContentLength: request.ContentLength,
-		Host:          request.Host,
+		method:        request.Method,
+		contentLength: request.ContentLength,
+		host:          request.Host,
 		MultipartForm: func() *multipart.Form {
 			return request.MultipartForm
 		},
-		Scheme:     request.URL.Scheme,
-		RemoteAddr: request.RemoteAddr,
+		scheme:     request.URL.Scheme,
+		remoteAddr: request.RemoteAddr,
 	}
+
+	changeable := RequestChangeable{
+		queries:    rc.queryParams,
+		pathParams: rc.pathParams,
+		headers:    rc.headers,
+	}
+
+	modifiers := []RequestModifier{}
+	for _, m := range modifiers {
+		m(&changeable)
+	}
+
+	rc.affectChangeable(&changeable)
 
 	interruptChannel := make(chan *Status, 1)
 	successfulOperationChannel := make(chan *Status, 1)
 	// panicChannel should not be defined here, since error handling is on server layer
 
 	for _, modifier := range controller.requestListeners {
-		rc = modifier(rc)
+		modifier(&changeable)
 	}
 
 	for _, interrupt := range controller.interrupts {
-		go interrupt.TriggerFor(rc, interruptChannel)
+		go interrupt.TriggerFor(&rc, interruptChannel)
 	}
 
 	var done bool
 	go func() {
-		var result Status
+		var result Response
 		for _, route := range controller.routes {
 			matches, pathParams := route.acceptsAndPathParams(request)
 			if matches && acceptsAllQueries(route.expectedQueries, request.URL.Query()) {
-				rc.PathParams = PathParams{pathParams}
+				rc.pathParams = PathParams{pathParams}
 				done = true
-				result = route.Action(rc)
+				result = route.Action(&rc)
 				break
 			}
 		}
@@ -131,23 +144,21 @@ func (controller *Controller) executeInternal(request *http.Request) Status {
 		}
 
 		for _, modifier := range controller.responseListeners {
-			result = modifier(result)
+			modifier(result)
 		}
-		successfulOperationChannel <- &result
+		successfulOperationChannel <- result
 	}()
 
 	select {
 	case interrupted := <-interruptChannel:
-		result := *interrupted
 		for _, watcher := range controller.apiListeners {
-			go watcher(rc, result)
+			go watcher(&rc, interrupted)
 		}
-		return result
+		return interrupted
 	case normal := <-successfulOperationChannel:
-		result := *normal
 		for _, watcher := range controller.apiListeners {
-			go watcher(rc, result)
+			go watcher(&rc, normal)
 		}
-		return result
+		return normal
 	}
 }
