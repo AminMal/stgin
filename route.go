@@ -107,25 +107,25 @@ func Handle(method string, pattern string, api API) Route {
 	return mkRoute(pattern, api, method)
 }
 
-// RouteCreationStage is a struct that can make routes step by step.
+// routeCreationStage is a struct that can make routes step by step.
 // Is only returned after OnPath function is called.
-type RouteCreationStage struct {
+type routeCreationStage struct {
 	method string
 	path   string
 }
 
 // Do assign's the api action to the route creation stage, and returns the resulting route.
-func (stage RouteCreationStage) Do(api API) Route {
+func (stage routeCreationStage) Do(api API) Route {
 	return mkRoute(stage.path, api, strings.ToUpper(stage.method))
 }
 
 // OnPath is the starting point of route creation stage, specifies the pattern.
-func OnPath(path string) RouteCreationStage {
-	return RouteCreationStage{path: path}
+func OnPath(path string) routeCreationStage {
+	return routeCreationStage{path: path}
 }
 
 // WithMethod attaches the method to the route creation stage.
-func (stage RouteCreationStage) WithMethod(method string) RouteCreationStage {
+func (stage routeCreationStage) WithMethod(method string) routeCreationStage {
 	stage.method = method
 	return stage
 }
