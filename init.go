@@ -13,7 +13,7 @@ var multipleSlashesRegex *regexp.Regexp
 const (
 	intRegexStr       = "[-]?[0-9]+"
 	floatRegexStr     = "[+\\-]?(?:(?:0|[1-9]\\d*)(?:\\.\\d*)?|\\.\\d+)(?:\\d[eE][+\\-]?\\d+)?"
-	stringRegexStr    = "[a-zA-Z0-9_!@#$%^&*()+=-]+"
+	stringRegexStr    = "[a-zA-Z0-9ا-ی۰-۹_!@#$%^&*()+=-]+"
 	expectQueryParams = "(\\?.*)?"
 	uuidRegexStr      = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 )

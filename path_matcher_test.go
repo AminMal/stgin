@@ -25,6 +25,27 @@ func TestMatchAndExtractPathParams(t *testing.T) {
 	}
 }
 
+func TestMatchAndExtractPathParamsFarsiCharacters(t *testing.T) {
+	pattern := "/users/$username:string/purchases/$id:int?age"
+	var dummyAPI API = func(_ RequestContext) Status { return Ok(Empty()) }
+	dummyRoute := GET(pattern, dummyAPI)
+	regex, compileErr := getPatternCorrespondingRegex(dummyRoute.Path)
+	if compileErr != nil {
+		t.Errorf("could not compile '%s' as a valid uri pattern", normalizePath(pattern))
+	}
+	dummyRoute.correspondingRegex = regex
+	uri := "/users/من/purchases/675?age=23"
+	params, matches := matchAndExtractPathParams(&dummyRoute, uri)
+	expected := Params{
+		"username": "من",
+		"id":       "675",
+	}
+	if !matches || !reflect.DeepEqual(expected, params) {
+		t.Error("path params do not follow the expected pattern")
+	}
+}
+
+
 func TestAddMatchingPattern(t *testing.T) {
 	startsWithJohnRegex := "^john.*"
 	err := AddMatchingPattern("john", startsWithJohnRegex)
